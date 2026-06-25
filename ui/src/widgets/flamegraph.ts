@@ -864,7 +864,6 @@ export class Flamegraph implements m.ClassComponent<FlamegraphAttrs> {
       {
         trigger: m(Button, {
           icon: 'menu',
-          compact: true,
         }),
         position: PopupPosition.Bottom,
       },

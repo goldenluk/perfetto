@@ -166,7 +166,6 @@ export class TreeExplorerFilterBar implements m.ClassComponent<TreeExplorerFilte
         {
           trigger: m(Button, {
             icon: Icons.Add,
-            compact: true,
             active: this.showFilterBuilder,
             onclick: () => {
               this.showFilterBuilder = !this.showFilterBuilder;
@@ -188,7 +187,6 @@ export class TreeExplorerFilterBar implements m.ClassComponent<TreeExplorerFilte
       ),
       m(CopyToClipboardButton(), {
         textToCopy: () => tags.join(' '),
-        compact: true,
         disabled: !hasFilters,
       }),
       m(Button, {
