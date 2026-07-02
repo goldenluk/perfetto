@@ -14,35 +14,46 @@
 
 import m from 'mithril';
 import {Button, ButtonVariant} from '../../../widgets/button';
+import {EmptyState} from '../../../widgets/empty_state';
 import './sql_tab.scss';
 
 export interface SqlTabAttrs {
   readonly displaySql: string | undefined;
-  readonly sqlText: string;
-}
-
-function renderPreBlock(text: string, hasContent: boolean): m.Children {
-  return m('pre', {className: hasContent ? undefined : 'pf-empty'}, text);
+  readonly activeNodeId: string | undefined;
 }
 
 export class SqlTab implements m.ClassComponent<SqlTabAttrs> {
   view({attrs}: m.Vnode<SqlTabAttrs>) {
-    const {displaySql, sqlText} = attrs;
+    const {displaySql, activeNodeId} = attrs;
+
+    if (!displaySql) {
+      if (!activeNodeId) {
+        return m(
+          EmptyState,
+          {fillHeight: true, title: 'No node selected'},
+          'Select a node to see its SQL.',
+        );
+      }
+      return m(
+        EmptyState,
+        {icon: 'warning', fillHeight: true, title: 'Incomplete query'},
+        'Fill in all required fields to see the SQL.',
+      );
+    }
+
     return m('.pf-spag-sql-tab', [
-      displaySql
-        ? m(
-            '.pf-spag-sql-tab-toolbar',
-            m(Button, {
-              variant: ButtonVariant.Filled,
-              icon: 'content_copy',
-              label: 'Copy',
-              onclick: () => {
-                navigator.clipboard.writeText(displaySql);
-              },
-            }),
-          )
-        : null,
-      renderPreBlock(sqlText, !!displaySql),
+      m(
+        '.pf-spag-sql-tab-toolbar',
+        m(Button, {
+          variant: ButtonVariant.Filled,
+          icon: 'content_copy',
+          label: 'Copy',
+          onclick: () => {
+            navigator.clipboard.writeText(displaySql);
+          },
+        }),
+      ),
+      m('pre', displaySql),
     ]);
   }
 }

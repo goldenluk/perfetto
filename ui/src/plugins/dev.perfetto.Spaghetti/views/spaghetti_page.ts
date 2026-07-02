@@ -910,10 +910,6 @@ export function SpaghettiPage(): m.Component<SpaghettiPage> {
         ? getOutputColumnsForNode(flatNodes, activeNodeId, sqlModules)
         : undefined;
 
-      const sqlText = activeNodeId
-        ? displaySql ?? 'Incomplete query — fill in all required fields'
-        : 'Select a node to preview its SQL';
-
       // Build IR entries for the IR tab (pure function of graph, always fresh).
       const irEntries = activeNodeId
         ? buildIR(flatNodes, activeNodeId, sqlModules) ?? []
@@ -945,7 +941,7 @@ export function SpaghettiPage(): m.Component<SpaghettiPage> {
             {
               key: 'sql',
               title: 'SQL',
-              content: m(SqlTab, {displaySql, sqlText}),
+              content: m(SqlTab, {displaySql, activeNodeId}),
             },
             {
               key: 'columns',

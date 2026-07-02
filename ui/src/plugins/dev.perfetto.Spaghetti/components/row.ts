@@ -28,8 +28,8 @@ export interface RowReorder {
 
 export interface RowAttrs extends m.Attributes {
   // When set, the row renders a drag handle and supports drag reordering
-  // within its list. Rows can only be dropped onto siblings of the same
-  // parent element, so multiple lists never interfere with each other.
+  // within its list. While dragging, the source row is grayed out and the
+  // sibling rows slide around to preview the resulting order.
   readonly reorder?: RowReorder;
 }
 
@@ -46,20 +46,102 @@ export function moveItem<T>(
   return updated;
 }
 
-// The row currently being dragged. Drags are document-local so a single
-// module-level slot is sufficient and avoids leaking state through
-// dataTransfer (which is unreadable during dragover anyway).
-let dragSource: {el: HTMLElement; index: number} | null = null;
-
-function clearDropMarkers(el: HTMLElement) {
-  el.classList.remove('pf-drag-over-top', 'pf-drag-over-bottom');
+// State of the drag in progress. Drags are document-local so a single
+// module-level slot is sufficient. The dragover/drop listeners live on the
+// list container (the rows' parent element), which keeps hit-testing stable
+// while the rows themselves are being translated around, and confines drops
+// to the source list.
+interface DragState {
+  readonly from: number;
+  readonly rows: HTMLElement[];
+  // Height of one slot: source row height + list row-gap.
+  readonly slotHeight: number;
+  readonly onMove: (from: number, to: number) => void;
+  readonly cleanup: () => void;
+  // Current previewed destination index.
+  preview: number;
 }
 
-// Rows only accept drops from siblings in the same list.
-function isSameList(target: HTMLElement): boolean {
-  return (
-    dragSource !== null && dragSource.el.parentElement === target.parentElement
+let drag: DragState | null = null;
+
+// Translate rows so the list previews the order after dropping at `to`.
+function applyPreview(to: number) {
+  if (drag === null || to === drag.preview) return;
+  drag.preview = to;
+  const {rows, from, slotHeight} = drag;
+  rows.forEach((row, j) => {
+    let shift = 0;
+    if (j === from) {
+      shift = (to - from) * slotHeight;
+    } else if (from < to && j > from && j <= to) {
+      shift = -slotHeight;
+    } else if (to < from && j >= to && j < from) {
+      shift = slotHeight;
+    }
+    row.style.transform = shift === 0 ? '' : `translateY(${shift}px)`;
+  });
+}
+
+function startDrag(
+  e: DragEvent,
+  index: number,
+  onMove: (from: number, to: number) => void,
+) {
+  const el = e.currentTarget as HTMLElement;
+  const parent = el.parentElement;
+  if (!parent) return;
+
+  // Firefox requires setData for the drag to start at all.
+  e.dataTransfer!.setData('text/plain', '');
+  e.dataTransfer!.effectAllowed = 'move';
+  el.classList.add('pf-dragging');
+
+  const rows = Array.from(parent.children).filter((c): c is HTMLElement =>
+    c.classList.contains('pf-spag-row'),
   );
+  const gap = parseFloat(getComputedStyle(parent).rowGap) || 0;
+  const slotHeight = el.offsetHeight + gap;
+
+  const ondragover = (ev: DragEvent) => {
+    ev.preventDefault();
+    ev.dataTransfer!.dropEffect = 'move';
+    const y = ev.clientY - parent.getBoundingClientRect().top;
+    const to = Math.max(
+      0,
+      Math.min(rows.length - 1, Math.floor(y / slotHeight)),
+    );
+    applyPreview(to);
+  };
+  const ondrop = (ev: DragEvent) => {
+    ev.preventDefault();
+    if (drag !== null && drag.preview !== drag.from) {
+      drag.onMove(drag.from, drag.preview);
+      // These listeners are attached outside mithril, so redraw manually.
+      m.redraw();
+    }
+  };
+  parent.addEventListener('dragover', ondragover);
+  parent.addEventListener('drop', ondrop);
+  // Enables the transform transition on the rows for the duration of the
+  // drag; removed before transforms are cleared so rows snap (not animate)
+  // into their final rendered positions.
+  parent.classList.add('pf-spag-drag-active');
+
+  drag = {
+    from: index,
+    rows,
+    slotHeight,
+    onMove,
+    preview: index,
+    cleanup: () => {
+      parent.classList.remove('pf-spag-drag-active');
+      parent.removeEventListener('dragover', ondragover);
+      parent.removeEventListener('drop', ondrop);
+      for (const row of rows) {
+        row.style.transform = '';
+      }
+    },
+  };
 }
 
 export function Row(): m.Component<RowAttrs> {
@@ -76,43 +158,14 @@ export function Row(): m.Component<RowAttrs> {
         {
           ...rest,
           ondragstart: (e: DragEvent) => {
-            const el = e.currentTarget as HTMLElement;
-            // Firefox requires setData for the drag to start at all.
-            e.dataTransfer!.setData('text/plain', '');
-            e.dataTransfer!.effectAllowed = 'move';
-            dragSource = {el, index};
-            el.classList.add('pf-dragging');
+            startDrag(e, index, onMove);
           },
           ondragend: (e: DragEvent) => {
             const el = e.currentTarget as HTMLElement;
             el.classList.remove('pf-dragging');
             el.removeAttribute('draggable');
-            dragSource = null;
-          },
-          ondragover: (e: DragEvent) => {
-            const el = e.currentTarget as HTMLElement;
-            if (!isSameList(el)) return;
-            e.preventDefault();
-            e.dataTransfer!.dropEffect = 'move';
-            const rect = el.getBoundingClientRect();
-            const isBottom = e.clientY > rect.top + rect.height / 2;
-            el.classList.toggle('pf-drag-over-top', !isBottom);
-            el.classList.toggle('pf-drag-over-bottom', isBottom);
-          },
-          ondragleave: (e: DragEvent) => {
-            clearDropMarkers(e.currentTarget as HTMLElement);
-          },
-          ondrop: (e: DragEvent) => {
-            const el = e.currentTarget as HTMLElement;
-            const isBottom = el.classList.contains('pf-drag-over-bottom');
-            clearDropMarkers(el);
-            if (!isSameList(el)) return;
-            e.preventDefault();
-            const from = dragSource!.index;
-            let to = isBottom ? index + 1 : index;
-            if (from === to || from + 1 === to) return;
-            if (from < to) to--;
-            onMove(from, to);
+            drag?.cleanup();
+            drag = null;
           },
         },
         m(Icon, {

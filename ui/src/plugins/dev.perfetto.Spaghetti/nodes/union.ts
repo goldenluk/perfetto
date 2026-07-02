@@ -14,7 +14,7 @@
 
 import m from 'mithril';
 import {Checkbox} from '../../../widgets/checkbox';
-import {Button, ButtonVariant} from '../../../widgets/button';
+import {InputCountButtons} from '../components/add_button';
 import {Stack} from '../components/stack';
 import type {NodeManifest} from '../node_types';
 import type {Port} from '../graph_model';
@@ -45,23 +45,12 @@ export const manifest: NodeManifest<UnionConfig> = {
   },
   render(config, updateConfig) {
     const n = config.numInputs;
-    const canRemove = n > 2;
     return m(Stack, [
-      m('div', {style: {display: 'flex', gap: '4px'}}, [
-        canRemove &&
-          m(Button, {
-            label: '- Input',
-            variant: ButtonVariant.Filled,
-            style: {flex: '1'},
-            onclick: () => updateConfig({numInputs: n - 1}),
-          }),
-        m(Button, {
-          label: '+ Input',
-          variant: ButtonVariant.Filled,
-          style: {flex: '1'},
-          onclick: () => updateConfig({numInputs: n + 1}),
-        }),
-      ]),
+      m(InputCountButtons, {
+        canRemove: n > 2,
+        onAdd: () => updateConfig({numInputs: n + 1}),
+        onRemove: () => updateConfig({numInputs: n - 1}),
+      }),
       m(Checkbox, {
         label: 'Distinct',
         checked: config.distinct,

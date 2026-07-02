@@ -33,6 +33,11 @@
   max-width: 480px;
   box-sizing: border-box;
   color: var(--pf-color-text);
+
+  svg {
+    display: block;
+    overflow: visible;
+  }
 }
 
 .pf-spag-chart-title {
@@ -51,6 +56,6 @@
 }
 
 .pf-spag-chart-error {
-  color: var(--pf-error, #c00);
+  color: var(--pf-color-danger);
   opacity: 1;
 }

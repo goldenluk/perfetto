@@ -49,7 +49,7 @@ function ExtendContent(): m.Component<{
 }> {
   return {
     view({attrs: {config, updateConfig}}) {
-      return m(Stack, {style: {minWidth: '250px'}}, [
+      return m(Stack, {className: 'pf-spag-node-wide'}, [
         m(Stack, {compact: true}, [
           ...config.entries.map((entry, i) =>
             m(

@@ -14,10 +14,11 @@
 
 import m from 'mithril';
 import type {NodeManifest, DetailsContext} from '../node_types';
-import {Button, ButtonVariant} from '../../../widgets/button';
+import {EmptyState} from '../../../widgets/empty_state';
 import {NUM_NULL, STR_NULL} from '../../../trace_processor/query_result';
 import {ColumnPicker} from '../widgets/column_picker';
-import {Row} from '../components/row';
+import {moveItem, Row} from '../components/row';
+import {AddButton, InputCountButtons} from '../components/add_button';
 import {Stack} from '../components/stack';
 import './chart.scss';
 import type {Port} from '../graph_model';
@@ -201,7 +202,6 @@ function BarChartPanel(): m.Component<{
           {
             viewBox: `0 0 ${CHART_SVG_WIDTH} ${svgHeight}`,
             width: '100%',
-            style: {display: 'block', overflow: 'visible'},
           },
           bars,
         ),
@@ -222,39 +222,17 @@ function ChartDashboard(): m.Component<{
     view({attrs: {config, ctx}}) {
       if (!ctx.materializedTable) {
         return m(
-          '.pf-spag-chart-dashboard',
-          {
-            style: {
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-            },
-          },
-          m(
-            'span',
-            {style: {opacity: '0.5'}},
-            'Connect an input to see charts.',
-          ),
+          EmptyState,
+          {fillHeight: true, title: 'No input connected'},
+          'Connect an input to see charts.',
         );
       }
 
       if (config.charts.length === 0) {
         return m(
-          '.pf-spag-chart-dashboard',
-          {
-            style: {
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-            },
-          },
-          m(
-            'span',
-            {style: {opacity: '0.5'}},
-            'Add chart specs in the node to see visualizations.',
-          ),
+          EmptyState,
+          {icon: 'bar_chart', fillHeight: true, title: 'No charts configured'},
+          'Add a chart in the node to see visualizations.',
         );
       }
 
@@ -306,68 +284,65 @@ export const manifest: NodeManifest<ChartConfig> = {
   },
   render(config, updateConfig, ctx) {
     const n = config.numInputs;
-    const canRemove = n > 1;
     const cols = ctx.availableColumns;
 
     return m(Stack, [
-      m('div', {style: {display: 'flex', gap: '4px'}}, [
-        canRemove &&
-          m(Button, {
-            label: '− Input',
-            variant: ButtonVariant.Filled,
-            style: {flex: '1'},
-            onclick: () => updateConfig({numInputs: n - 1}),
-          }),
-        m(Button, {
-          label: '+ Input',
-          variant: ButtonVariant.Filled,
-          style: {flex: '1'},
-          onclick: () => updateConfig({numInputs: n + 1}),
-        }),
-      ]),
+      m(InputCountButtons, {
+        canRemove: n > 1,
+        onAdd: () => updateConfig({numInputs: n + 1}),
+        onRemove: () => updateConfig({numInputs: n - 1}),
+      }),
       m('.pf-spag-section-label', 'Charts'),
       m(
         Stack,
         {compact: true},
         config.charts.map((spec, i) =>
-          m(Row, {key: i}, [
-            m(ColumnPicker, {
-              value: spec.xCol,
-              columns: cols,
-              placeholder: 'x column',
-              onSelect: (v: string) => {
-                const updated = [...config.charts];
-                updated[i] = {...spec, xCol: v};
-                updateConfig({charts: updated});
+          m(
+            Row,
+            {
+              key: i,
+              reorder: {
+                index: i,
+                onMove: (from: number, to: number) => {
+                  updateConfig({charts: moveItem(config.charts, from, to)});
+                },
               },
-            }),
-            m(
-              'span',
-              {style: {opacity: '0.5', fontSize: '11px', padding: '0 2px'}},
-              '×',
-            ),
-            m(ColumnPicker, {
-              value: spec.yCol,
-              columns: cols,
-              placeholder: 'y (count)',
-              onSelect: (v: string) => {
-                const updated = [...config.charts];
-                updated[i] = {...spec, yCol: v};
-                updateConfig({charts: updated});
-              },
-            }),
-            m(Row.DeleteButton, {
-              title: 'Remove chart',
-              onclick: () =>
-                updateConfig({charts: config.charts.filter((_, j) => j !== i)}),
-            }),
-          ]),
+            },
+            [
+              m(ColumnPicker, {
+                value: spec.xCol,
+                columns: cols,
+                placeholder: 'x column',
+                onSelect: (v: string) => {
+                  const updated = [...config.charts];
+                  updated[i] = {...spec, xCol: v};
+                  updateConfig({charts: updated});
+                },
+              }),
+              m('span.pf-spag-op', '×'),
+              m(ColumnPicker, {
+                value: spec.yCol,
+                columns: cols,
+                placeholder: 'y (count)',
+                onSelect: (v: string) => {
+                  const updated = [...config.charts];
+                  updated[i] = {...spec, yCol: v};
+                  updateConfig({charts: updated});
+                },
+              }),
+              m(Row.DeleteButton, {
+                title: 'Remove chart',
+                onclick: () =>
+                  updateConfig({
+                    charts: config.charts.filter((_, j) => j !== i),
+                  }),
+              }),
+            ],
+          ),
         ),
       ),
-      m(Button, {
+      m(AddButton, {
         label: 'Add chart',
-        icon: 'add',
-        variant: ButtonVariant.Filled,
         onclick: () =>
           updateConfig({charts: [...config.charts, {xCol: '', yCol: ''}]}),
       }),

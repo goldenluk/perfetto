@@ -13,10 +13,10 @@
 // limitations under the License.
 
 import m from 'mithril';
-import {Button, ButtonVariant} from '../../../widgets/button';
 import {TextInput} from '../../../widgets/text_input';
 import {Select} from '../../../widgets/select';
-import {Row} from '../components/row';
+import {moveItem, Row} from '../components/row';
+import {AddButton} from '../components/add_button';
 import {Stack} from '../components/stack';
 import './sql.scss';
 import type {NodeManifest, RenderContext} from '../node_types';
@@ -104,23 +104,28 @@ export const manifest: NodeManifest<SqlConfig> = {
   },
   render(config, updateConfig, ctx: RenderContext) {
     const {columns = [], inputPorts = []} = config;
-    const canRemove = inputPorts.length > 0;
 
     return m(Stack, [
       // Input table aliases
+      m('span.pf-spag-section-label', 'Input tables'),
       inputPorts.length > 0 &&
-        m(Stack, [
-          m('span.pf-spag-section-label', 'Input tables'),
-          m(
-            'div',
-            {style: {display: 'flex', flexDirection: 'column', gap: '2px'}},
-            ctx.inputPorts.map((port, i) =>
-              m('.pf-spag-sql-col-row', {key: port.name}, [
-                m(
-                  'span.pf-spag-hint',
-                  {style: {gridColumn: 'span 1'}},
-                  `#${i + 1}`,
-                ),
+        m(
+          Stack,
+          {compact: true},
+          ctx.inputPorts.map((port, i) =>
+            m(
+              Row,
+              {
+                key: port.name,
+                reorder: {
+                  index: i,
+                  onMove: (from: number, to: number) => {
+                    updateConfig({inputPorts: moveItem(inputPorts, from, to)});
+                  },
+                },
+              },
+              [
+                m('span.pf-spag-hint', `#${i + 1}`),
                 m(TextInput, {
                   placeholder: `alias (e.g. events)`,
                   value: inputPorts[i] ?? '',
@@ -130,32 +135,24 @@ export const manifest: NodeManifest<SqlConfig> = {
                     updateConfig({inputPorts: next});
                   },
                 }),
-              ]),
+                m(Row.DeleteButton, {
+                  onclick: () => {
+                    updateConfig({
+                      inputPorts: inputPorts.filter((_, j) => j !== i),
+                    });
+                  },
+                }),
+              ],
             ),
           ),
-        ]),
-      // Add / remove input buttons
-      m('div', {style: {display: 'flex', gap: '4px'}}, [
-        canRemove &&
-          m(Button, {
-            label: '- Input',
-            variant: ButtonVariant.Filled,
-            style: {flex: '1'},
-            onclick: () =>
-              updateConfig({
-                inputPorts: inputPorts.slice(0, inputPorts.length - 1),
-              }),
+        ),
+      m(AddButton, {
+        label: 'Add input',
+        onclick: () =>
+          updateConfig({
+            inputPorts: [...inputPorts, `input_${inputPorts.length}`],
           }),
-        m(Button, {
-          label: '+ Input',
-          variant: ButtonVariant.Filled,
-          style: {flex: '1'},
-          onclick: () =>
-            updateConfig({
-              inputPorts: [...inputPorts, `input_${inputPorts.length}`],
-            }),
-        }),
-      ]),
+      }),
       // SQL body
       m('span.pf-spag-section-label', 'SQL'),
       m('textarea.pf-spag-sql-textarea', {
@@ -180,48 +177,58 @@ export const manifest: NodeManifest<SqlConfig> = {
       m('span.pf-spag-section-label', 'Output columns'),
       columns.length > 0 &&
         m(
-          'div',
-          {style: {display: 'flex', flexDirection: 'column', gap: '2px'}},
+          Stack,
+          {compact: true},
           columns.map((col, i) =>
-            m('.pf-spag-sql-col-row', {key: i}, [
-              m(TextInput, {
-                placeholder: 'column name',
-                value: col.name,
-                onChange: (value: string) => {
-                  const next = [...columns];
-                  next[i] = {...col, name: value};
-                  updateConfig({columns: next});
-                },
-              }),
-              m(
-                Select,
-                {
-                  value: col.type,
-                  onchange: (e: Event) => {
-                    const next = [...columns];
-                    next[i] = {
-                      ...col,
-                      type: (e.target as HTMLSelectElement).value,
-                    };
-                    updateConfig({columns: next});
+            m(
+              Row,
+              {
+                key: i,
+                reorder: {
+                  index: i,
+                  onMove: (from: number, to: number) => {
+                    updateConfig({columns: moveItem(columns, from, to)});
                   },
                 },
-                TYPE_OPTIONS.map((opt) =>
-                  m('option', {value: opt.value}, opt.label),
+              },
+              [
+                m(TextInput, {
+                  placeholder: 'column name',
+                  value: col.name,
+                  onChange: (value: string) => {
+                    const next = [...columns];
+                    next[i] = {...col, name: value};
+                    updateConfig({columns: next});
+                  },
+                }),
+                m(
+                  Select,
+                  {
+                    value: col.type,
+                    onchange: (e: Event) => {
+                      const next = [...columns];
+                      next[i] = {
+                        ...col,
+                        type: (e.target as HTMLSelectElement).value,
+                      };
+                      updateConfig({columns: next});
+                    },
+                  },
+                  TYPE_OPTIONS.map((opt) =>
+                    m('option', {value: opt.value}, opt.label),
+                  ),
                 ),
-              ),
-              m(Row.DeleteButton, {
-                onclick: () => {
-                  updateConfig({columns: columns.filter((_, j) => j !== i)});
-                },
-              }),
-            ]),
+                m(Row.DeleteButton, {
+                  onclick: () => {
+                    updateConfig({columns: columns.filter((_, j) => j !== i)});
+                  },
+                }),
+              ],
+            ),
           ),
         ),
-      m(Button, {
+      m(AddButton, {
         label: 'Add output column',
-        icon: 'add',
-        variant: ButtonVariant.Filled,
         onclick: () => {
           updateConfig({columns: [...columns, {name: '', type: ''}]});
         },

@@ -16,12 +16,11 @@ import m from 'mithril';
 import {Checkbox} from '../../../widgets/checkbox';
 import type {NodeManifest, RenderContext} from '../node_types';
 import {moveItem, Row} from '../components/row';
-import {AddButton} from '../components/add_button';
+import {AddButton, InputCountButtons} from '../components/add_button';
 import {Stack} from '../components/stack';
 import {TextInput} from '../../../widgets/text_input';
 import type {ColumnDef} from '../graph_utils';
 import type {Port} from '../graph_model';
-import {Button, ButtonVariant} from '../../../widgets/button';
 
 export interface IntervalIntersectConfig {
   readonly numInputs: number;
@@ -36,7 +35,6 @@ function IntervalIntersectContent(): m.Component<{
 }> {
   return {
     view({attrs: {config, updateConfig}}) {
-      const canRemove = config.numInputs > 2;
       return m(Stack, [
         m(Checkbox, {
           label: 'Filter dur >= 0',
@@ -44,22 +42,12 @@ function IntervalIntersectContent(): m.Component<{
           onchange: () =>
             updateConfig({filterNegativeDur: !config.filterNegativeDur}),
         }),
-        m('div', {style: {display: 'flex', gap: '4px'}}, [
-          canRemove &&
-            m(Button, {
-              label: '− Input',
-              variant: ButtonVariant.Filled,
-              style: {flex: '1'},
-              onclick: () =>
-                updateConfig({numInputs: Math.max(2, config.numInputs - 1)}),
-            }),
-          m(Button, {
-            label: '+ Input',
-            variant: ButtonVariant.Filled,
-            style: {flex: '1'},
-            onclick: () => updateConfig({numInputs: config.numInputs + 1}),
-          }),
-        ]),
+        m(InputCountButtons, {
+          canRemove: config.numInputs > 2,
+          onAdd: () => updateConfig({numInputs: config.numInputs + 1}),
+          onRemove: () =>
+            updateConfig({numInputs: Math.max(2, config.numInputs - 1)}),
+        }),
         m('.pf-spag-section-label', 'Partition by'),
         m(Stack, {compact: true}, [
           ...config.partitionColumns.map((col, i) =>

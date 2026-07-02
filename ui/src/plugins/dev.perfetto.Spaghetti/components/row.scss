@@ -12,6 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// While a drag is in progress, rows slide around to preview the drop
+// result. The class is removed before transforms are cleared, so rows snap
+// (not animate) into their final rendered positions on drop.
+.pf-spag-drag-active > .pf-spag-row {
+  transition: transform 150ms ease;
+
+  // Suppress hover chrome on rows being dragged over.
+  &:hover {
+    background: none;
+
+    .pf-spag-delete {
+      opacity: 0;
+    }
+
+    .pf-spag-draghandle,
+    .pf-spag-alias-btn {
+      opacity: 0.4;
+    }
+  }
+}
+
 .pf-spag-row {
   display: flex;
   align-items: baseline;
@@ -63,16 +84,11 @@
     }
   }
 
+  // The row being dragged: grayed out in place while it previews its
+  // destination slot (the browser's drag image follows the cursor).
   &.pf-dragging {
-    opacity: 0.4;
-  }
-
-  &.pf-drag-over-top {
-    box-shadow: 0 -2px 0 0 var(--pf-color-accent);
-  }
-
-  &.pf-drag-over-bottom {
-    box-shadow: 0 2px 0 0 var(--pf-color-accent);
+    opacity: 0.35;
+    filter: grayscale(1);
   }
 
   // Select elements shrink to current value.

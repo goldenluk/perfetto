@@ -51,7 +51,7 @@ function GroupByContent(): m.Component<{
 }> {
   return {
     view({attrs: {config, updateConfig, ctx}}) {
-      return m(Stack, {style: {minWidth: '250px'}}, [
+      return m(Stack, {className: 'pf-spag-node-wide'}, [
         m('.pf-spag-section-label', 'Group by'),
         m(Stack, {compact: true}, [
           ...config.groupColumns.map((col, i) =>

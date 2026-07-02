@@ -14,6 +14,7 @@
 
 import m from 'mithril';
 import {Button, ButtonVariant} from '../../../widgets/button';
+import {EmptyState} from '../../../widgets/empty_state';
 import type {CacheEntry} from '../materialization';
 import {Card} from '../components/card';
 import './cache_tab.scss';
@@ -64,7 +65,11 @@ export class CacheTab implements m.ClassComponent<CacheTabAttrs> {
                 }),
               ),
           ]
-        : m('span.pf-spag-cache-tab-empty', 'Cache is empty'),
+        : m(
+            EmptyState,
+            {fillHeight: true, title: 'Cache is empty'},
+            'Materialized query results will appear here.',
+          ),
     );
   }
 }

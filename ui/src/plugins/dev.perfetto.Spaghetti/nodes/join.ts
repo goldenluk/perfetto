@@ -60,7 +60,7 @@ function JoinNodeContent(): m.Component<{
       const leftSet = new Set(leftColumns.map((c) => c.name));
 
       const joinType = config.joinType;
-      return m(Stack, {style: {minWidth: '200px'}}, [
+      return m(Stack, {className: 'pf-spag-node-wide'}, [
         m(
           RadioGroup,
           {
@@ -85,7 +85,7 @@ function JoinNodeContent(): m.Component<{
               updateConfig({leftColumn: value});
             },
           }),
-          m('span', {style: {opacity: 0.5}}, '='),
+          m('span.pf-spag-op', '='),
           m(ColumnPicker, {
             value: config.rightColumn,
             columns: rightColumns,

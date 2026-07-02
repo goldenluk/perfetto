@@ -30,23 +30,3 @@
     border-color: var(--pf-color-primary);
   }
 }
-
-.pf-spag-sql-col-row {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 2px;
-  align-items: center;
-
-  .pf-text-input {
-    min-width: 0;
-  }
-
-  .pf-select {
-    field-sizing: content;
-    width: auto;
-  }
-
-  .pf-button {
-    margin-right: -6px;
-  }
-}

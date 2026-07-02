@@ -32,3 +32,32 @@ export const AddButton: m.Component<AddButtonAttrs> = {
     });
   },
 };
+
+export interface InputCountButtonsAttrs {
+  // Hide the remove button when the input count is at its minimum.
+  readonly canRemove: boolean;
+  readonly onAdd: () => void;
+  readonly onRemove: () => void;
+}
+
+// Side-by-side "− Input" / "+ Input" buttons for nodes with a variable
+// number of input ports, styled like AddButton.
+export const InputCountButtons: m.Component<InputCountButtonsAttrs> = {
+  view({attrs}) {
+    return m('.pf-spag-input-count', [
+      attrs.canRemove &&
+        m(Button, {
+          label: 'Input',
+          icon: 'remove',
+          className: 'pf-spag-add-btn',
+          onclick: attrs.onRemove,
+        }),
+      m(Button, {
+        label: 'Input',
+        icon: 'add',
+        className: 'pf-spag-add-btn',
+        onclick: attrs.onAdd,
+      }),
+    ]);
+  },
+};

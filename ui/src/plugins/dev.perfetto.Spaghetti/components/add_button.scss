@@ -12,6 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Paired "− Input" / "+ Input" buttons for variable-input nodes.
+.pf-spag-input-count {
+  display: flex;
+  gap: 4px;
+
+  > .pf-button-wrapper,
+  > button {
+    flex: 1;
+  }
+}
+
 // Subtle "add row" button: quiet until hovered.
 .pf-spag-add-btn {
   color: var(--pf-color-text-muted);
