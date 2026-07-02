@@ -19,9 +19,9 @@ import type {
   RenderContext,
   SqlStatement,
 } from '../node_types';
-import {Button, ButtonVariant} from '../../../widgets/button';
 import {TextInput} from '../../../widgets/text_input';
-import {Row} from '../components/row';
+import {moveItem, Row} from '../components/row';
+import {AddButton} from '../components/add_button';
 import {Stack} from '../components/stack';
 import {ColumnPicker} from '../widgets/column_picker';
 import type {ColumnDef} from '../graph_utils';
@@ -63,74 +63,21 @@ function SelectNodeContent(): m.Component<{
       return m(Stack, [
         m('.pf-spag-section-label', 'Columns'),
         entries.length === 0 &&
-          m(
-            '.pf-spag-passthrough-hint',
-            {
-              style: {
-                opacity: 0.5,
-                fontStyle: 'italic',
-                fontSize: '11px',
-                padding: '2px 4px',
-              },
-            },
-            'All columns (passthrough)',
-          ),
+          m('.pf-spag-placeholder', 'All columns (passthrough)'),
         m(Stack, {compact: true}, [
           ...entries.map((entry, i) =>
             m(
               Row,
               {
                 key: `entry:${i}`,
-                draggable: true,
-                ondragstart: (e: DragEvent) => {
-                  e.dataTransfer!.effectAllowed = 'move';
-                  e.dataTransfer!.setData('text/plain', `entry:${i}`);
-                  (e.currentTarget as HTMLElement).classList.add('pf-dragging');
-                },
-                ondragend: (e: DragEvent) => {
-                  (e.currentTarget as HTMLElement).classList.remove(
-                    'pf-dragging',
-                  );
-                },
-                ondragover: (e: DragEvent) => {
-                  e.preventDefault();
-                  e.dataTransfer!.dropEffect = 'move';
-                  const el = e.currentTarget as HTMLElement;
-                  const rect = el.getBoundingClientRect();
-                  const isBottom = e.clientY > rect.top + rect.height / 2;
-                  el.classList.toggle('pf-drag-over-top', !isBottom);
-                  el.classList.toggle('pf-drag-over-bottom', isBottom);
-                },
-                ondragleave: (e: DragEvent) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.classList.remove(
-                    'pf-drag-over-top',
-                    'pf-drag-over-bottom',
-                  );
-                },
-                ondrop: (e: DragEvent) => {
-                  e.preventDefault();
-                  const el = e.currentTarget as HTMLElement;
-                  const isBottom = el.classList.contains('pf-drag-over-bottom');
-                  el.classList.remove(
-                    'pf-drag-over-top',
-                    'pf-drag-over-bottom',
-                  );
-                  const data = e.dataTransfer!.getData('text/plain');
-                  if (!data.startsWith('entry:')) return;
-                  const fromIdx = parseInt(data.slice(6));
-                  let toIdx = isBottom ? i + 1 : i;
-                  if (fromIdx !== toIdx && fromIdx + 1 !== toIdx) {
-                    const updated = [...entries];
-                    const [moved] = updated.splice(fromIdx, 1);
-                    if (fromIdx < toIdx) toIdx--;
-                    updated.splice(toIdx, 0, moved);
-                    updateConfig({entries: updated});
-                  }
+                reorder: {
+                  index: i,
+                  onMove: (from: number, to: number) => {
+                    updateConfig({entries: moveItem(entries, from, to)});
+                  },
                 },
               },
               [
-                m(Row.DragHandle),
                 m(ColumnPicker, {
                   value: entry.column,
                   columns: availableColumns,
@@ -161,10 +108,8 @@ function SelectNodeContent(): m.Component<{
             ),
           ),
         ]),
-        m(Button, {
+        m(AddButton, {
           label: 'Add column',
-          icon: 'add',
-          variant: ButtonVariant.Filled,
           onclick: () => {
             updateConfig({
               entries: [...entries, {column: '', alias: ''}],
@@ -179,56 +124,16 @@ function SelectNodeContent(): m.Component<{
               Row,
               {
                 key: `expr:${i}`,
-                draggable: true,
-                ondragstart: (e: DragEvent) => {
-                  e.dataTransfer!.effectAllowed = 'move';
-                  e.dataTransfer!.setData('text/plain', `expr:${i}`);
-                  (e.currentTarget as HTMLElement).classList.add('pf-dragging');
-                },
-                ondragend: (e: DragEvent) => {
-                  (e.currentTarget as HTMLElement).classList.remove(
-                    'pf-dragging',
-                  );
-                },
-                ondragover: (e: DragEvent) => {
-                  e.preventDefault();
-                  e.dataTransfer!.dropEffect = 'move';
-                  const el = e.currentTarget as HTMLElement;
-                  const rect = el.getBoundingClientRect();
-                  const isBottom = e.clientY > rect.top + rect.height / 2;
-                  el.classList.toggle('pf-drag-over-top', !isBottom);
-                  el.classList.toggle('pf-drag-over-bottom', isBottom);
-                },
-                ondragleave: (e: DragEvent) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.classList.remove(
-                    'pf-drag-over-top',
-                    'pf-drag-over-bottom',
-                  );
-                },
-                ondrop: (e: DragEvent) => {
-                  e.preventDefault();
-                  const el = e.currentTarget as HTMLElement;
-                  const isBottom = el.classList.contains('pf-drag-over-bottom');
-                  el.classList.remove(
-                    'pf-drag-over-top',
-                    'pf-drag-over-bottom',
-                  );
-                  const data = e.dataTransfer!.getData('text/plain');
-                  if (!data.startsWith('expr:')) return;
-                  const fromIdx = parseInt(data.slice(5));
-                  let toIdx = isBottom ? i + 1 : i;
-                  if (fromIdx !== toIdx && fromIdx + 1 !== toIdx) {
-                    const updated = [...expressions];
-                    const [moved] = updated.splice(fromIdx, 1);
-                    if (fromIdx < toIdx) toIdx--;
-                    updated.splice(toIdx, 0, moved);
-                    updateConfig({expressions: updated});
-                  }
+                reorder: {
+                  index: i,
+                  onMove: (from: number, to: number) => {
+                    updateConfig({
+                      expressions: moveItem(expressions, from, to),
+                    });
+                  },
                 },
               },
               [
-                m(Row.DragHandle),
                 m(TextInput, {
                   placeholder: 'expression',
                   value: expr.expression,
@@ -258,10 +163,8 @@ function SelectNodeContent(): m.Component<{
             ),
           ),
         ]),
-        m(Button, {
+        m(AddButton, {
           label: 'Add expression',
-          variant: ButtonVariant.Filled,
-          icon: 'add',
           onclick: () => {
             updateConfig({
               expressions: [...expressions, {expression: '', alias: ''}],

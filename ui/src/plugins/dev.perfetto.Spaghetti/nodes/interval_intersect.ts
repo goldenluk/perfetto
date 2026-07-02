@@ -15,7 +15,8 @@
 import m from 'mithril';
 import {Checkbox} from '../../../widgets/checkbox';
 import type {NodeManifest, RenderContext} from '../node_types';
-import {Row} from '../components/row';
+import {moveItem, Row} from '../components/row';
+import {AddButton} from '../components/add_button';
 import {Stack} from '../components/stack';
 import {TextInput} from '../../../widgets/text_input';
 import type {ColumnDef} from '../graph_utils';
@@ -66,16 +67,20 @@ function IntervalIntersectContent(): m.Component<{
               Row,
               {
                 key: i,
-                draggable: true,
-                onReorder: (fromIdx: number, toIdx: number) => {
-                  const updated = [...config.partitionColumns];
-                  const [moved] = updated.splice(fromIdx, 1);
-                  updated.splice(toIdx, 0, moved);
-                  updateConfig({partitionColumns: updated});
+                reorder: {
+                  index: i,
+                  onMove: (from: number, to: number) => {
+                    updateConfig({
+                      partitionColumns: moveItem(
+                        config.partitionColumns,
+                        from,
+                        to,
+                      ),
+                    });
+                  },
                 },
               },
               [
-                m(Row.DragHandle),
                 m(TextInput, {
                   value: col,
                   placeholder: 'column',
@@ -99,10 +104,8 @@ function IntervalIntersectContent(): m.Component<{
             ),
           ),
         ]),
-        m(Button, {
-          label: 'Column',
-          icon: 'add',
-          variant: ButtonVariant.Filled,
+        m(AddButton, {
+          label: 'Add column',
           onclick: () => {
             updateConfig({
               partitionColumns: [...config.partitionColumns, ''],

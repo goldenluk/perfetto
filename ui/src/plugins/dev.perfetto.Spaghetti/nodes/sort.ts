@@ -14,8 +14,8 @@
 
 import m from 'mithril';
 import type {NodeManifest, RenderContext, SqlStatement} from '../node_types';
-import {Button, ButtonVariant} from '../../../widgets/button';
-import {Row} from '../components/row';
+import {moveItem, Row} from '../components/row';
+import {AddButton} from '../components/add_button';
 import {Stack} from '../components/stack';
 import {ColumnPicker} from '../widgets/column_picker';
 import {RadioGroup} from '../../../widgets/radio_group';
@@ -76,56 +76,14 @@ function SortNodeContent(): m.Component<{
               Row,
               {
                 key: i,
-                draggable: true,
-                ondragstart: (e: DragEvent) => {
-                  e.dataTransfer!.effectAllowed = 'move';
-                  e.dataTransfer!.setData('text/plain', String(i));
-                  (e.currentTarget as HTMLElement).classList.add('pf-dragging');
-                },
-                ondragend: (e: DragEvent) => {
-                  (e.currentTarget as HTMLElement).classList.remove(
-                    'pf-dragging',
-                  );
-                },
-                ondragover: (e: DragEvent) => {
-                  e.preventDefault();
-                  e.dataTransfer!.dropEffect = 'move';
-                  const el = e.currentTarget as HTMLElement;
-                  const rect = el.getBoundingClientRect();
-                  const isBottom = e.clientY > rect.top + rect.height / 2;
-                  el.classList.toggle('pf-drag-over-top', !isBottom);
-                  el.classList.toggle('pf-drag-over-bottom', isBottom);
-                },
-                ondragleave: (e: DragEvent) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.classList.remove(
-                    'pf-drag-over-top',
-                    'pf-drag-over-bottom',
-                  );
-                },
-                ondrop: (e: DragEvent) => {
-                  e.preventDefault();
-                  const el = e.currentTarget as HTMLElement;
-                  const isBottom = el.classList.contains('pf-drag-over-bottom');
-                  el.classList.remove(
-                    'pf-drag-over-top',
-                    'pf-drag-over-bottom',
-                  );
-                  const fromIdx = parseInt(
-                    e.dataTransfer!.getData('text/plain'),
-                  );
-                  let toIdx = isBottom ? i + 1 : i;
-                  if (fromIdx !== toIdx && fromIdx + 1 !== toIdx) {
-                    const updated = [...conditions];
-                    const [moved] = updated.splice(fromIdx, 1);
-                    if (fromIdx < toIdx) toIdx--;
-                    updated.splice(toIdx, 0, moved);
-                    updateConditions(updated);
-                  }
+                reorder: {
+                  index: i,
+                  onMove: (from: number, to: number) => {
+                    updateConditions(moveItem(conditions, from, to));
+                  },
                 },
               },
               [
-                m(Row.DragHandle),
                 m(ColumnPicker, {
                   value: cond.column,
                   columns: availableColumns,
@@ -158,10 +116,8 @@ function SortNodeContent(): m.Component<{
             ),
           ),
         ]),
-        m(Button, {
+        m(AddButton, {
           label: 'Add sort by',
-          icon: 'add',
-          variant: ButtonVariant.Filled,
           onclick: () => {
             updateConditions([...conditions, {column: '', order: 'ASC'}]);
           },

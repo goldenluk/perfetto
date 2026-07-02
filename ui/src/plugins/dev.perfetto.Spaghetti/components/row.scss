@@ -17,10 +17,50 @@
   align-items: baseline;
   gap: 2px;
   position: relative;
+  border-radius: 4px;
 
+  &:hover {
+    background: var(--pf-color-background-hover);
+  }
+
+  // The drag handle and alias pill occupy layout space, so they stay
+  // faintly visible at rest (hiding them would leave mystery gaps) and
+  // brighten on hover.
+  .pf-spag-draghandle,
+  .pf-spag-alias-btn {
+    opacity: 0.4;
+    transition: opacity 100ms ease-in-out;
+  }
+
+  &:hover,
+  &:focus-within {
+    .pf-spag-draghandle,
+    .pf-spag-alias-btn {
+      opacity: 0.7;
+    }
+
+    .pf-spag-delete {
+      opacity: 0.6;
+    }
+
+    .pf-spag-draghandle:hover,
+    .pf-spag-alias-btn:hover {
+      opacity: 1;
+    }
+  }
+
+  // The delete button is the same width in every row, so it can vanish
+  // completely at rest without breaking alignment.
   .pf-spag-delete {
+    opacity: 0;
+    transition: opacity 100ms ease-in-out;
     margin-right: -6px;
     color: var(--pf-color-text-muted);
+
+    &:hover {
+      opacity: 1;
+      color: var(--pf-color-danger);
+    }
   }
 
   &.pf-dragging {
@@ -28,11 +68,11 @@
   }
 
   &.pf-drag-over-top {
-    box-shadow: 0 -2px 0 0 var(--pf-color-primary, #6a8);
+    box-shadow: 0 -2px 0 0 var(--pf-color-accent);
   }
 
   &.pf-drag-over-bottom {
-    box-shadow: 0 2px 0 0 var(--pf-color-primary, #6a8);
+    box-shadow: 0 2px 0 0 var(--pf-color-accent);
   }
 
   // Select elements shrink to current value.
@@ -54,12 +94,6 @@
       min-width: 50px;
     }
   }
-
-//   // Close button doesn't grow.
-//   button,
-//   .pf-button-wrapper {
-//     flex: 0 0 auto;
-//   }
 
   // Drag handle icon.
   .pf-spag-draghandle {

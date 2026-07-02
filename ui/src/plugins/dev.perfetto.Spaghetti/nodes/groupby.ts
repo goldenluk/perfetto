@@ -19,9 +19,9 @@ import type {
   RenderContext,
   SqlStatement,
 } from '../node_types';
-import {Button, ButtonVariant} from '../../../widgets/button';
 import {Select} from '../../../widgets/select';
-import {Row} from '../components/row';
+import {moveItem, Row} from '../components/row';
+import {AddButton} from '../components/add_button';
 import {Stack} from '../components/stack';
 import {ColumnPicker} from '../widgets/column_picker';
 import type {ColumnDef} from '../graph_utils';
@@ -59,56 +59,16 @@ function GroupByContent(): m.Component<{
               Row,
               {
                 key: i,
-                draggable: true,
-                ondragstart: (e: DragEvent) => {
-                  e.dataTransfer!.effectAllowed = 'move';
-                  e.dataTransfer!.setData('text/plain', `group:${i}`);
-                  (e.currentTarget as HTMLElement).classList.add('pf-dragging');
-                },
-                ondragend: (e: DragEvent) => {
-                  (e.currentTarget as HTMLElement).classList.remove(
-                    'pf-dragging',
-                  );
-                },
-                ondragover: (e: DragEvent) => {
-                  e.preventDefault();
-                  e.dataTransfer!.dropEffect = 'move';
-                  const el = e.currentTarget as HTMLElement;
-                  const rect = el.getBoundingClientRect();
-                  const isBottom = e.clientY > rect.top + rect.height / 2;
-                  el.classList.toggle('pf-drag-over-top', !isBottom);
-                  el.classList.toggle('pf-drag-over-bottom', isBottom);
-                },
-                ondragleave: (e: DragEvent) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.classList.remove(
-                    'pf-drag-over-top',
-                    'pf-drag-over-bottom',
-                  );
-                },
-                ondrop: (e: DragEvent) => {
-                  e.preventDefault();
-                  const el = e.currentTarget as HTMLElement;
-                  const isBottom = el.classList.contains('pf-drag-over-bottom');
-                  el.classList.remove(
-                    'pf-drag-over-top',
-                    'pf-drag-over-bottom',
-                  );
-                  const data = e.dataTransfer!.getData('text/plain');
-                  if (!data.startsWith('group:')) return;
-                  const fromIdx = parseInt(data.slice(6));
-                  let toIdx = isBottom ? i + 1 : i;
-                  if (fromIdx !== toIdx && fromIdx + 1 !== toIdx) {
-                    const updated = [...config.groupColumns];
-                    const [moved] = updated.splice(fromIdx, 1);
-                    if (fromIdx < toIdx) toIdx--;
-                    updated.splice(toIdx, 0, moved);
-                    updateConfig({groupColumns: updated});
-                  }
+                reorder: {
+                  index: i,
+                  onMove: (from: number, to: number) => {
+                    updateConfig({
+                      groupColumns: moveItem(config.groupColumns, from, to),
+                    });
+                  },
                 },
               },
               [
-                m(Row.DragHandle),
                 m(ColumnPicker, {
                   value: col,
                   columns: ctx.availableColumns,
@@ -132,10 +92,8 @@ function GroupByContent(): m.Component<{
             ),
           ),
         ]),
-        m(Button, {
-          label: 'Grouping',
-          icon: 'add',
-          variant: ButtonVariant.Filled,
+        m(AddButton, {
+          label: 'Add grouping',
           onclick: () => {
             updateConfig({groupColumns: [...config.groupColumns, '']});
           },
@@ -148,56 +106,16 @@ function GroupByContent(): m.Component<{
               Row,
               {
                 key: i,
-                draggable: true,
-                ondragstart: (e: DragEvent) => {
-                  e.dataTransfer!.effectAllowed = 'move';
-                  e.dataTransfer!.setData('text/plain', `agg:${i}`);
-                  (e.currentTarget as HTMLElement).classList.add('pf-dragging');
-                },
-                ondragend: (e: DragEvent) => {
-                  (e.currentTarget as HTMLElement).classList.remove(
-                    'pf-dragging',
-                  );
-                },
-                ondragover: (e: DragEvent) => {
-                  e.preventDefault();
-                  e.dataTransfer!.dropEffect = 'move';
-                  const el = e.currentTarget as HTMLElement;
-                  const rect = el.getBoundingClientRect();
-                  const isBottom = e.clientY > rect.top + rect.height / 2;
-                  el.classList.toggle('pf-drag-over-top', !isBottom);
-                  el.classList.toggle('pf-drag-over-bottom', isBottom);
-                },
-                ondragleave: (e: DragEvent) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.classList.remove(
-                    'pf-drag-over-top',
-                    'pf-drag-over-bottom',
-                  );
-                },
-                ondrop: (e: DragEvent) => {
-                  e.preventDefault();
-                  const el = e.currentTarget as HTMLElement;
-                  const isBottom = el.classList.contains('pf-drag-over-bottom');
-                  el.classList.remove(
-                    'pf-drag-over-top',
-                    'pf-drag-over-bottom',
-                  );
-                  const data = e.dataTransfer!.getData('text/plain');
-                  if (!data.startsWith('agg:')) return;
-                  const fromIdx = parseInt(data.slice(4));
-                  let toIdx = isBottom ? i + 1 : i;
-                  if (fromIdx !== toIdx && fromIdx + 1 !== toIdx) {
-                    const newAggs = [...config.aggregations];
-                    const [moved] = newAggs.splice(fromIdx, 1);
-                    if (fromIdx < toIdx) toIdx--;
-                    newAggs.splice(toIdx, 0, moved);
-                    updateConfig({aggregations: newAggs});
-                  }
+                reorder: {
+                  index: i,
+                  onMove: (from: number, to: number) => {
+                    updateConfig({
+                      aggregations: moveItem(config.aggregations, from, to),
+                    });
+                  },
                 },
               },
               [
-                m(Row.DragHandle),
                 m(
                   Select,
                   {
@@ -252,10 +170,8 @@ function GroupByContent(): m.Component<{
             ),
           ),
         ]),
-        m(Button, {
-          label: 'Aggregation',
-          icon: 'add',
-          variant: ButtonVariant.Filled,
+        m(AddButton, {
+          label: 'Add aggregation',
           onclick: () => {
             updateConfig({
               aggregations: [

@@ -14,11 +14,10 @@
 
 import m from 'mithril';
 import {TextInput} from '../../../widgets/text_input';
-import {Button} from '../../../widgets/button';
 import './alias_tag.scss';
 
-// A tiny tag that expands into a text input when clicked.
-// If blurred with an empty value, collapses back to the tag.
+// A tiny "as" pill that expands into an alias text input when clicked.
+// If blurred (or Escape is pressed) with an empty value, collapses back.
 export function AliasTag(): m.Component<{
   alias: string;
   placeholder: string;
@@ -30,7 +29,7 @@ export function AliasTag(): m.Component<{
     view({attrs: {alias, placeholder, onChange}}) {
       if (editing || alias) {
         return m('.pf-spag-alias-tag', [
-          m('span', {style: {opacity: 0.5, fontSize: '11px'}}, 'as'),
+          m('span.pf-spag-alias-tag__label', 'as'),
           m(TextInput, {
             placeholder,
             value: alias,
@@ -39,17 +38,24 @@ export function AliasTag(): m.Component<{
             onblur: () => {
               if (!alias) editing = false;
             },
+            onkeydown: (e: KeyboardEvent) => {
+              if (e.key === 'Escape') {
+                (e.target as HTMLElement).blur();
+              }
+            },
           }),
         ]);
       }
-      return m(Button, {
-        icon: 'shoppingmode',
-        className: 'pf-spag-alias-btn',
-        title: 'Add alias',
-        onclick: () => {
-          editing = true;
+      return m(
+        'button.pf-spag-alias-btn',
+        {
+          title: 'Add alias',
+          onclick: () => {
+            editing = true;
+          },
         },
-      });
+        'as',
+      );
     },
   };
 }

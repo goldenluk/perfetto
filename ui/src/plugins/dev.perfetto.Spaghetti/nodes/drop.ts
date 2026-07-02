@@ -19,8 +19,8 @@ import type {
   NodeManifest,
   RenderContext,
 } from '../node_types';
-import {Button, ButtonVariant} from '../../../widgets/button';
 import {Row} from '../components/row';
+import {AddButton} from '../components/add_button';
 import {Stack} from '../components/stack';
 import {ColumnPicker} from '../widgets/column_picker';
 import type {ColumnDef} from '../graph_utils';
@@ -39,18 +39,7 @@ function DropContent(): m.Component<{
     view({attrs: {config, updateConfig, ctx}}) {
       return m(Stack, [
         config.columns.length === 0 &&
-          m(
-            '.pf-spag-passthrough-hint',
-            {
-              style: {
-                opacity: 0.5,
-                fontStyle: 'italic',
-                fontSize: '11px',
-                padding: '2px 4px',
-              },
-            },
-            'All columns (passthrough)',
-          ),
+          m('.pf-spag-placeholder', 'All columns (passthrough)'),
         m(Stack, {compact: true}, [
           ...config.columns.map((column, i) =>
             m(Row, {key: i}, [
@@ -74,10 +63,8 @@ function DropContent(): m.Component<{
             ]),
           ),
         ]),
-        m(Button, {
+        m(AddButton, {
           label: 'Drop column',
-          variant: ButtonVariant.Filled,
-          icon: 'add',
           onclick: () => {
             updateConfig({columns: [...config.columns, '']});
           },

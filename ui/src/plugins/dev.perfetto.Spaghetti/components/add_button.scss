@@ -12,34 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Inline alias editor: "as" label + text input.
-.pf-spag-alias-tag {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-
-  &__label {
-    color: var(--pf-color-text-muted);
-    font-size: 11px;
-    font-style: italic;
-  }
-}
-
-// Compact "as" pill that expands into the alias editor.
-.pf-spag-alias-btn {
-  flex: 0 0 auto;
-  align-self: center;
-  padding: 0 6px;
-  border: 1px dashed var(--pf-color-border);
-  border-radius: 8px;
-  background: none;
+// Subtle "add row" button: quiet until hovered.
+.pf-spag-add-btn {
   color: var(--pf-color-text-muted);
-  font-size: 11px;
-  font-style: italic;
-  cursor: pointer;
+  border: 1px dashed var(--pf-color-border);
+  border-radius: 4px;
 
   &:hover {
-    border-color: var(--pf-color-accent);
     color: var(--pf-color-text);
+    border-color: var(--pf-color-accent);
   }
 }

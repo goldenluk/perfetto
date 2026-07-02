@@ -19,9 +19,9 @@ import type {
   RenderContext,
   SqlStatement,
 } from '../node_types';
-import {Button, ButtonVariant} from '../../../widgets/button';
 import {TextInput} from '../../../widgets/text_input';
-import {Row} from '../components/row';
+import {moveItem, Row} from '../components/row';
+import {AddButton} from '../components/add_button';
 import {Stack} from '../components/stack';
 import {ColumnPicker} from '../widgets/column_picker';
 import type {ColumnDef} from '../graph_utils';
@@ -67,56 +67,16 @@ function ExtractArgContent(): m.Component<{
               Row,
               {
                 key: i,
-                draggable: true,
-                ondragstart: (e: DragEvent) => {
-                  e.dataTransfer!.effectAllowed = 'move';
-                  e.dataTransfer!.setData('text/plain', String(i));
-                  (e.currentTarget as HTMLElement).classList.add('pf-dragging');
-                },
-                ondragend: (e: DragEvent) => {
-                  (e.currentTarget as HTMLElement).classList.remove(
-                    'pf-dragging',
-                  );
-                },
-                ondragover: (e: DragEvent) => {
-                  e.preventDefault();
-                  e.dataTransfer!.dropEffect = 'move';
-                  const el = e.currentTarget as HTMLElement;
-                  const rect = el.getBoundingClientRect();
-                  const isBottom = e.clientY > rect.top + rect.height / 2;
-                  el.classList.toggle('pf-drag-over-top', !isBottom);
-                  el.classList.toggle('pf-drag-over-bottom', isBottom);
-                },
-                ondragleave: (e: DragEvent) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.classList.remove(
-                    'pf-drag-over-top',
-                    'pf-drag-over-bottom',
-                  );
-                },
-                ondrop: (e: DragEvent) => {
-                  e.preventDefault();
-                  const el = e.currentTarget as HTMLElement;
-                  const isBottom = el.classList.contains('pf-drag-over-bottom');
-                  el.classList.remove(
-                    'pf-drag-over-top',
-                    'pf-drag-over-bottom',
-                  );
-                  const fromIdx = parseInt(
-                    e.dataTransfer!.getData('text/plain'),
-                  );
-                  let toIdx = isBottom ? i + 1 : i;
-                  if (fromIdx !== toIdx && fromIdx + 1 !== toIdx) {
-                    const newExtractions = [...config.extractions];
-                    const [moved] = newExtractions.splice(fromIdx, 1);
-                    if (fromIdx < toIdx) toIdx--;
-                    newExtractions.splice(toIdx, 0, moved);
-                    updateConfig({extractions: newExtractions});
-                  }
+                reorder: {
+                  index: i,
+                  onMove: (from: number, to: number) => {
+                    updateConfig({
+                      extractions: moveItem(config.extractions, from, to),
+                    });
+                  },
                 },
               },
               [
-                m(Row.DragHandle),
                 m(TextInput, {
                   placeholder: 'arg name',
                   value: entry.argName,
@@ -146,10 +106,8 @@ function ExtractArgContent(): m.Component<{
             ),
           ),
         ]),
-        m(Button, {
+        m(AddButton, {
           label: 'Add arg',
-          variant: ButtonVariant.Filled,
-          icon: 'add',
           onclick: () => {
             updateConfig({
               extractions: [...config.extractions, {argName: '', alias: ''}],
