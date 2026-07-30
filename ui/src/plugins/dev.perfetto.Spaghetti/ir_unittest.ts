@@ -83,7 +83,7 @@ describe('buildIR', () => {
       type: 'select',
       id: 's1',
       next: filter,
-      config: {columns: {name: true, dur: true, ts: false}, expressions: []},
+      config: {entries: [{column: 'name', alias: ''}, {column: 'dur', alias: ''}], expressions: []},
     };
     const from: RootNodeData = {
       type: 'from',
@@ -98,7 +98,7 @@ describe('buildIR', () => {
     expect(entries).toBeDefined();
     // select + filter should fold into one entry
     expect(entries!.length).toBe(1);
-    expect(entries![0].sql).toContain('SELECT name, dur');
+    expect(entries![0].sql).toMatch(/SELECT.*name.*dur/s);
     expect(entries![0].sql).toContain('WHERE dur > 100');
   });
 
@@ -317,7 +317,7 @@ describe('buildDisplaySql', () => {
     const entries = getEntries([from], 'flt1');
     const sql = buildDisplaySql(entries)!;
     expect(sql).toContain('WITH');
-    expect(sql).toContain('_qb_');
+    expect(sql).toContain('step_1');
     expect(sql).toContain('GROUP BY name');
     expect(sql).toContain('WHERE cnt > 5');
   });
