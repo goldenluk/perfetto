@@ -33,6 +33,8 @@ source_set("exec") {
     "row_selection.h",
     "row_store.cc",
     "row_store.h",
+    "tree_number_nodes.cc",
+    "tree_number_nodes.h",
     "variant.h",
   ]
   deps = [
@@ -58,6 +60,7 @@ perfetto_unittest_source_set("unittests") {
     "dataframe_scan_unittest.cc",
     "operator_unittest.cc",
     "row_store_unittest.cc",
+    "tree_number_nodes_unittest.cc",
   ]
   deps = [
     ":exec",
