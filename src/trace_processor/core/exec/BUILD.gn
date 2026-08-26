@@ -35,6 +35,8 @@ source_set("exec") {
     "row_store.h",
     "tree_number_nodes.cc",
     "tree_number_nodes.h",
+    "tree_order.cc",
+    "tree_order.h",
     "variant.h",
   ]
   deps = [
@@ -61,6 +63,7 @@ perfetto_unittest_source_set("unittests") {
     "operator_unittest.cc",
     "row_store_unittest.cc",
     "tree_number_nodes_unittest.cc",
+    "tree_order_unittest.cc",
   ]
   deps = [
     ":exec",

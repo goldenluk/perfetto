@@ -17711,6 +17711,7 @@ filegroup {
         "src/trace_processor/core/exec/row_cursor.cc",
         "src/trace_processor/core/exec/row_store.cc",
         "src/trace_processor/core/exec/tree_number_nodes.cc",
+        "src/trace_processor/core/exec/tree_order.cc",
     ],
 }
 
@@ -17728,6 +17729,7 @@ filegroup {
         "src/trace_processor/core/exec/operator_unittest.cc",
         "src/trace_processor/core/exec/row_store_unittest.cc",
         "src/trace_processor/core/exec/tree_number_nodes_unittest.cc",
+        "src/trace_processor/core/exec/tree_order_unittest.cc",
     ],
 }
 
