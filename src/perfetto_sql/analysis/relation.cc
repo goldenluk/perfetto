@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -36,6 +37,18 @@ namespace perfetto::perfetto_sql::analysis {
 namespace {
 
 constexpr int kMaxDepth = 32;
+struct ParserDeleter {
+  void operator()(SyntaqliteParser* parser) const {
+    syntaqlite_parser_destroy(parser);
+  }
+};
+using ScopedParser = std::unique_ptr<SyntaqliteParser, ParserDeleter>;
+
+struct OwnedView {
+  std::string sql;
+  ScopedParser parser;
+  uint32_t root = 0;
+};
 
 std::string_view Text(SyntaqliteParser* p, SyntaqliteTextSpan span) {
   return base::TrimWhitespace(SyntaqliteSpanText(p, span));
@@ -57,18 +70,18 @@ void AppendUniqueOrigins(std::vector<ColumnOrigin>* dst,
   }
 }
 
-std::optional<SymbolId> CommonOrigin(
+std::optional<std::string_view> CommonOrigin(
     const std::vector<ColumnLineage>& columns) {
   if (columns.empty() || columns.front().origins.empty()) {
     return std::nullopt;
   }
-  SymbolId first = columns.front().origins.front().relation;
+  std::string_view first = columns.front().origins.front().relation_name;
   for (const ColumnLineage& column : columns) {
     if (column.origins.empty()) {
       return std::nullopt;
     }
     for (const ColumnOrigin& origin : column.origins) {
-      if (origin.relation != first) {
+      if (origin.relation_name != first) {
         return std::nullopt;
       }
     }
@@ -108,6 +121,7 @@ class RelationLineage::Storage {
     for (ColumnLineage& column : columns_) {
       column.output_name = strings_.Append(column.output_name);
       for (ColumnOrigin& origin : column.origins) {
+        origin.relation_name = strings_.Append(origin.relation_name);
         origin.column_name = strings_.Append(origin.column_name);
       }
     }
@@ -117,7 +131,7 @@ class RelationLineage::Storage {
   }
 
   const std::vector<ColumnLineage>& columns() const { return columns_; }
-  std::optional<SymbolId> row_origin() const { return row_origin_; }
+  std::optional<std::string_view> row_origin() const { return row_origin_; }
 
  private:
   static size_t StringBytes(const std::vector<ColumnLineage>& columns) {
@@ -125,6 +139,7 @@ class RelationLineage::Storage {
     for (const ColumnLineage& column : columns) {
       bytes += column.output_name.size();
       for (const ColumnOrigin& origin : column.origins) {
+        bytes += origin.relation_name.size();
         bytes += origin.column_name.size();
       }
     }
@@ -133,15 +148,17 @@ class RelationLineage::Storage {
 
   internal::StringArena strings_;
   std::vector<ColumnLineage> columns_;
-  std::optional<SymbolId> row_origin_;
+  std::optional<std::string_view> row_origin_;
 };
 
 class RelationAnalyzer::Impl {
  public:
-  Impl(const Program& program, const Catalog& catalog)
-      : program_(program), catalog_(catalog) {}
+  explicit Impl(const Catalog& catalog) : catalog_(catalog) {}
 
-  void Begin() { preserves_rows_ = true; }
+  void Begin() {
+    preserves_rows_ = true;
+    views_.clear();
+  }
 
   base::StatusOr<std::vector<ColumnLineage>> Relation(std::string_view name,
                                                       int depth);
@@ -171,8 +188,8 @@ class RelationAnalyzer::Impl {
                        std::string_view table,
                        std::string_view column) const;
 
-  const Program& program_;
   const Catalog& catalog_;
+  std::vector<std::unique_ptr<OwnedView>> views_;
   bool preserves_rows_ = true;
 };
 
@@ -418,32 +435,41 @@ base::StatusOr<std::vector<ColumnLineage>> RelationAnalyzer::Impl::Relation(
     std::string_view name,
     int depth) {
   if (std::optional<LeafRelation> relation = catalog_.FindLeafRelation(name)) {
-    std::optional<SymbolId> symbol = program_.FindSymbol(name);
-    if (!symbol) {
-      return base::ErrStatus(
-          "relation analysis: leaf relation '%.*s' is not in the program",
-          static_cast<int>(name.size()), name.data());
-    }
     std::vector<ColumnLineage> out;
     out.reserve(relation->columns.size());
     for (std::string_view column : relation->columns) {
-      out.push_back({column, {{*symbol, column}}});
+      out.push_back({column, {{relation->name, column}}});
     }
     return out;
-  }
-  std::optional<ViewDefinition> view = catalog_.FindView(name);
-  if (!view) {
-    return base::ErrStatus("relation analysis: '%.*s' is not known",
-                           static_cast<int>(name.size()), name.data());
   }
   if (depth >= kMaxDepth) {
     return base::ErrStatus(
         "relation analysis: views nested too deeply at '%.*s'",
         static_cast<int>(name.size()), name.data());
   }
+  std::optional<std::string> sql = catalog_.FindViewSql(name);
+  if (!sql) {
+    return base::ErrStatus("relation analysis: '%.*s' is not known",
+                           static_cast<int>(name.size()), name.data());
+  }
 
-  SyntaqliteParser* p = view->statement.parser;
-  const SyntaqliteNode* node = Node(p, view->statement.id);
+  // TODO(lalitm): Cache parsed view definitions instead of allocating a parser
+  // for each resolved view; the query-time cost is acceptable for now.
+  auto view = std::make_unique<OwnedView>();
+  view->sql = std::move(*sql);
+  view->parser.reset(syntaqlite_parser_create_perfetto(nullptr));
+  syntaqlite_parser_reset(view->parser.get(), view->sql.data(),
+                          static_cast<uint32_t>(view->sql.size()));
+  if (syntaqlite_parser_next(view->parser.get()) != SYNTAQLITE_PARSE_OK) {
+    return base::ErrStatus("relation analysis: could not parse view '%.*s'",
+                           static_cast<int>(name.size()), name.data());
+  }
+  view->root = syntaqlite_result_root(view->parser.get());
+  OwnedView* owned = view.get();
+  views_.push_back(std::move(view));
+
+  SyntaqliteParser* p = owned->parser.get();
+  const SyntaqliteNode* node = Node(p, owned->root);
   if (!node) {
     return base::ErrStatus("relation analysis: empty view '%.*s'",
                            static_cast<int>(name.size()), name.data());
@@ -498,13 +524,12 @@ const std::vector<ColumnLineage>& RelationLineage::columns() const {
   return storage_->columns();
 }
 
-std::optional<SymbolId> RelationLineage::row_origin() const {
+std::optional<std::string_view> RelationLineage::row_origin() const {
   return storage_->row_origin();
 }
 
-RelationAnalyzer::RelationAnalyzer(const Program& program,
-                                   const Catalog& catalog)
-    : impl_(std::make_unique<Impl>(program, catalog)) {}
+RelationAnalyzer::RelationAnalyzer(const Catalog& catalog)
+    : impl_(std::make_unique<Impl>(catalog)) {}
 
 RelationAnalyzer::~RelationAnalyzer() = default;
 
