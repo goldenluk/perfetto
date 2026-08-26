@@ -29,9 +29,18 @@ namespace perfetto::trace_processor::lineage {
 
 namespace analysis = ::perfetto::perfetto_sql::analysis;
 
-// Adapts the dataframes and SQLite views of a live connection to the reusable
-// PerfettoSQL relation analyzer.
-class ConnectionCatalog final : public analysis::Catalog {
+// Supplies live relation metadata and maps semantic origins back to dataframe
+// storage.
+class Catalog : public analysis::Catalog {
+ public:
+  ~Catalog() override;
+
+  virtual std::optional<core::StorageType> ColumnType(
+      const analysis::ColumnLineage&) const = 0;
+};
+
+// Adapts one trace processor connection to semantic analysis.
+class ConnectionCatalog final : public Catalog {
  public:
   explicit ConnectionCatalog(PerfettoSqlConnection*);
 
@@ -42,7 +51,7 @@ class ConnectionCatalog final : public analysis::Catalog {
   // Maps all origins of a result column back to dataframe storage. Returns
   // nothing unless every origin has the same storage type.
   std::optional<core::StorageType> ColumnType(
-      const analysis::ColumnLineage&) const;
+      const analysis::ColumnLineage&) const override;
 
  private:
   PerfettoSqlConnection* connection_;

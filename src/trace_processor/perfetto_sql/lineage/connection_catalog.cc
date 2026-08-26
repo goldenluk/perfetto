@@ -48,6 +48,8 @@ std::string Quoted(std::string_view name) {
 
 }  // namespace
 
+Catalog::~Catalog() = default;
+
 ConnectionCatalog::ConnectionCatalog(PerfettoSqlConnection* connection)
     : connection_(connection) {}
 
