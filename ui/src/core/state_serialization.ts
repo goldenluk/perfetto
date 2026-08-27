@@ -253,26 +253,20 @@ export function deserializeAppStatePhase2(
     }
   }
 
-  // Restore non-default workspaces.
-  for (const ws of appState.workspaces ?? []) {
-    let workspace = ws.uuid
-      ? trace.workspaces.all.find((w) => w.uuid === ws.uuid)
-      : undefined;
-
-    if (!workspace) {
-      workspace = trace.workspaces.all.find((w) => w.title === ws.title);
-    }
-
-    if (!workspace) {
-      workspace = trace.workspaces.createEmptyWorkspace(ws.title, ws.uuid);
-    } else {
-      workspace.clear();
-      workspace.title = ws.title;
-      if (ws.uuid) {
-        workspace.uuid = ws.uuid;
+  // Restore non-default workspaces. The serialized state is the source of
+  // truth: remove all existing non-default workspaces (including any created
+  // by plugins) and recreate exactly what was serialized.
+  const serializedWorkspaces = appState.workspaces ?? [];
+  if (serializedWorkspaces.length > 0) {
+    for (const ws of trace.workspaces.all) {
+      if (ws !== trace.defaultWorkspace) {
+        trace.workspaces.removeWorkspace(ws);
       }
     }
+  }
 
+  for (const ws of serializedWorkspaces) {
+    const workspace = trace.workspaces.createEmptyWorkspace(ws.title, ws.uuid);
     if (ws.userEditable !== undefined) {
       workspace.userEditable = ws.userEditable;
     }
@@ -285,9 +279,7 @@ export function deserializeAppStatePhase2(
 
   if (appState.currentWorkspace !== undefined) {
     const targetWs = trace.workspaces.all.find(
-      (w) =>
-        w.uuid === appState.currentWorkspace ||
-        w.title === appState.currentWorkspace,
+      (w) => w.uuid === appState.currentWorkspace,
     );
     if (targetWs) {
       trace.workspaces.switchWorkspace(targetWs);
