@@ -308,7 +308,7 @@ void Rpc::DrainStream(Stream& stream) {
       }
       break;
     }
-    ParseRpcRequest(stream, msg.data(), msg.size());
+    ParseRpcRequest(stream, std::move(msg));
   }
 }
 
@@ -345,8 +345,11 @@ TraceProcessor::MetatraceCategories MetatraceCategoriesToPublicEnum(
 
 // [data, len] here is a tokenized TraceProcessorRpc proto message, without the
 // size header.
-void Rpc::ParseRpcRequest(Stream& stream, const uint8_t* data, size_t len) {
-  RpcProto::Decoder req(data, len);
+void Rpc::ParseRpcRequest(Stream& stream,
+                          protozero::ProtoRingBuffer::Message message) {
+  RpcProto::Decoder req(message.data(), message.size());
+  // Captured up front: TPM_APPEND_TRACE_DATA hands |message| to the parser.
+  const size_t len = message.size();
 
   // We allow restarting the sequence from 0. This happens when refreshing the
   // browser while using the external trace_processor_shell --httpd.
@@ -379,7 +382,14 @@ void Rpc::ParseRpcRequest(Stream& stream, const uint8_t* data, size_t len) {
         result->set_error(kErrFieldNotSet);
       } else {
         protozero::ConstBytes byte_range = req.append_trace_data();
-        base::Status res = Parse(byte_range.data, byte_range.size);
+        // Hand the tokenizer's own memory to the parser: holding the message
+        // keeps it alive for as long as the parser needs it. The const_cast is
+        // safe - the buffer is writable, the constness comes from Message
+        // being a read-only view of it.
+        base::Status res = Parse(TraceBlobView(TraceBlob::Adopt(
+            const_cast<uint8_t*>(byte_range.data), byte_range.size,
+            std::make_shared<protozero::ProtoRingBuffer::Message>(
+                std::move(message)))));
         if (!res.ok()) {
           result->set_error(res.message());
         }
