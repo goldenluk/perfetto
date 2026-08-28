@@ -16,7 +16,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <initializer_list>
 #include <memory>
 #include <optional>
@@ -75,24 +74,34 @@ class Httpd : public base::HttpRequestHandler {
 
  private:
   // HttpRequestHandler implementation.
+  uint8_t* OnHttpRequestBody(const base::HttpRequest&, size_t size) override;
+  uint8_t* OnWebsocketPayload(base::HttpServerConnection*,
+                              size_t size) override;
   void OnHttpRequest(const base::HttpRequest&) override;
   void OnWebsocketMessage(const base::WebsocketMessage&) override;
   void OnHttpConnectionClosed(base::HttpServerConnection*) override;
 
-  // The RPC byte-pipe carried by |conn|, created on first use: most
-  // connections (the REST endpoints, /status polls) never carry one.
+  // Inbound state of one connection. The server can be part-way through a
+  // payload on several connections at once, so none of this can be shared.
+  struct ConnState {
+    // The RPC byte-pipe this connection carries, created on first use: most
+    // connections (the REST endpoints, /status polls) never carry one.
+    std::unique_ptr<Rpc::Stream> stream;
+    // Held between OnHttpRequestBody()/OnWebsocketPayload() and the matching
+    // OnHttpRequest()/OnWebsocketMessage(), while the server reads the payload
+    // into it across however many socket reads that takes.
+    Rpc::Stream::RequestHandle pending;
+    // Bodies of the non-RPC endpoints, which just want to read them.
+    std::unique_ptr<uint8_t[]> payload;
+    size_t payload_size = 0;
+  };
+
   Rpc::Stream& GetRpcStream(base::HttpServerConnection* conn);
 
   static void ServeHelpPage(const base::HttpRequest&);
 
   Rpc& global_trace_processor_rpc_;
-  // One stream per connection. Several clients can be connected at the same
-  // time and each numbers its requests from its own 0, so they cannot share
-  // the framing state.
-  base::FlatHashMap<base::HttpServerConnection*,
-                    std::unique_ptr<Rpc::Stream>,
-                    ConnHasher>
-      streams_;
+  base::FlatHashMap<base::HttpServerConnection*, ConnState, ConnHasher> conns_;
   base::MaybeLockFreeTaskRunner task_runner_;
   base::HttpServer http_srv_;
   std::unique_ptr<IdleReaper> reaper_;
@@ -151,6 +160,30 @@ void Httpd::Run(const std::string& listen_ip,
   task_runner_.Run();
 }
 
+// RPC payloads go straight into the connection's tokenizer, so a trace chunk
+// is never copied.
+uint8_t* Httpd::OnHttpRequestBody(const base::HttpRequest& req, size_t size) {
+  ConnState& state = conns_[req.conn];
+  if (req.uri == "/rpc") {
+    state.pending = GetRpcStream(req.conn).BeginRequest(size);
+    return state.pending.data();
+  }
+  if (size > state.payload_size) {
+    // Deliberately not value-initialized: |size| comes from Content-Length, so
+    // touching it here would make an unsent body resident.
+    state.payload.reset(new uint8_t[size]);
+    state.payload_size = size;
+  }
+  return state.payload.get();
+}
+
+uint8_t* Httpd::OnWebsocketPayload(base::HttpServerConnection* conn,
+                                   size_t size) {
+  ConnState& state = conns_[conn];
+  state.pending = GetRpcStream(conn).BeginRequest(size);
+  return state.pending.data();
+}
+
 void Httpd::OnHttpRequest(const base::HttpRequest& req) {
   if (reaper_)
     reaper_->OnActivity();
@@ -206,12 +239,10 @@ void Httpd::OnHttpRequest(const base::HttpRequest& req) {
     conn.SendResponseHeaders("200 OK", chunked_headers,
                              base::HttpServerConnection::kOmitContentLength);
     if (!req.body.empty()) {
-      // The body has already been staged in the connection's buffer, so it has
-      // to be copied in. EndRequest() will call SendRpcChunk() one or more
+      // The body was read straight into the reservation opened by
+      // OnHttpRequestBody(). EndRequest() calls SendRpcChunk() one or more
       // times.
-      auto write = GetRpcStream(&conn).BeginRequest(req.body.size());
-      memcpy(write.data(), req.body.data(), req.body.size());
-      write.EndRequest(req.body.size());
+      conns_[&conn].pending.EndRequest(req.body.size());
     }
 
     // Terminate chunked stream.
@@ -339,15 +370,13 @@ void Httpd::OnWebsocketMessage(const base::WebsocketMessage& msg) {
     reaper_->OnActivity();
   if (msg.data.empty())
     return;
-  // The payload has already been staged in the connection's buffer, so it has
-  // to be copied in. EndRequest() will call SendRpcChunk() one or more times.
-  auto write = GetRpcStream(msg.conn).BeginRequest(msg.data.size());
-  memcpy(write.data(), msg.data.data(), msg.data.size());
-  write.EndRequest(msg.data.size());
+  // The payload was read straight into the reservation opened by
+  // OnWebsocketPayload(). EndRequest() calls SendRpcChunk() one or more times.
+  conns_[msg.conn].pending.EndRequest(msg.data.size());
 }
 
 Rpc::Stream& Httpd::GetRpcStream(base::HttpServerConnection* conn) {
-  auto& stream = streams_[conn];
+  auto& stream = conns_[conn].stream;
   if (!stream) {
     stream = std::make_unique<Rpc::Stream>(
         global_trace_processor_rpc_, [conn](const void* data, uint32_t len) {
@@ -358,7 +387,12 @@ Rpc::Stream& Httpd::GetRpcStream(base::HttpServerConnection* conn) {
 }
 
 void Httpd::OnHttpConnectionClosed(base::HttpServerConnection* conn) {
-  streams_.Erase(conn);
+  // A peer that goes away mid-payload leaves a reservation open; the bytes it
+  // managed to send are an incomplete message and are dropped with it.
+  ConnState* state = conns_.Find(conn);
+  if (state && state->pending)
+    state->pending.AbortRequest();
+  conns_.Erase(conn);
 }
 
 }  // namespace
