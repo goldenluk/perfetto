@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 
+#include "perfetto/base/compiler.h"
 #include "perfetto/base/status.h"
 #include "perfetto/ext/base/flat_hash_map.h"
 #include "perfetto/ext/protozero/proto_ring_buffer.h"
@@ -81,11 +82,51 @@ class Rpc {
   // trace_processor.proto). This has been introduced in Perfetto v15.
 
   // Pushes data received by the RPC channel into the parser. Inbound messages
-  // are tokenized and turned into TraceProcessor method invocations. |data|
-  // does not need to be a whole TraceProcessorRpc message. It can be a portion
+  // are tokenized and turned into TraceProcessor method invocations. The bytes
+  // do not need to be a whole TraceProcessorRpc message: they can be a portion
   // of it or a union of >1 messages.
+  // A reservation inside the tokenizer for a transport to read into, so that
+  // it never needs a staging buffer of its own. Move-only and must be consumed
+  // exactly once: EndRequest() reports how many bytes were written and
+  // dispatches whatever messages completed, AbortRequest() discards it.
+  // Letting one go out of scope unconsumed fails a CHECK.
+  class RequestHandle {
+   public:
+    RequestHandle() = default;
+    ~RequestHandle();
+
+    RequestHandle(RequestHandle&&) noexcept;
+    RequestHandle& operator=(RequestHandle&&) noexcept;
+    RequestHandle(const RequestHandle&) = delete;
+    RequestHandle& operator=(const RequestHandle&) = delete;
+
+    uint8_t* data() const { return write_.data(); }
+    size_t size() const { return write_.size(); }
+
+    void EndRequest(size_t size_written);
+    void AbortRequest();
+
+    // False once consumed or moved from.
+    explicit operator bool() const { return rpc_ != nullptr; }
+
+   private:
+    friend class Rpc;
+    RequestHandle(Rpc* rpc, protozero::ProtoRingBuffer::WriteHandle write)
+        : rpc_(rpc), write_(std::move(write)) {}
+
+    Rpc* rpc_ = nullptr;
+    protozero::ProtoRingBuffer::WriteHandle write_;
+  };
+
+  // Pushes data received by the RPC channel into the parser. Inbound messages
+  // are tokenized and turned into TraceProcessor method invocations. The bytes
+  // do not need to be a whole TraceProcessorRpc message: they can be a portion
+  // of it or a union of >1 messages.
+  // OnRpcRequest() is the copying equivalent, for transports that cannot read
+  // into the reservation directly.
   // Responses are sent throught the RpcResponseFunction (below).
   void OnRpcRequest(const void* data, size_t len);
+  PERFETTO_WARN_UNUSED_RESULT RequestHandle BeginRpcRequest(size_t size);
 
   // The size argument is a uint32_t and not size_t to avoid ABI mismatches
   // with Wasm, where size_t = uint32_t.
@@ -151,6 +192,7 @@ class Rpc {
   base::Status ExportSqlite(const ExportCallback&);
 
   void ParseRpcRequest(const uint8_t*, size_t);
+  void DrainRxBuf();
   void ResetTraceProcessor(const uint8_t*, size_t);
   base::Status RegisterSqlPackage(protozero::ConstBytes);
   void ResetTraceProcessorInternal(const Config&);

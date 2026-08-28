@@ -253,6 +253,44 @@ void Rpc::ResetTraceProcessorInternal(const Config& config) {
 
 void Rpc::OnRpcRequest(const void* data, size_t len) {
   rxbuf_.Append(data, len);
+  DrainRxBuf();
+}
+
+Rpc::RequestHandle::~RequestHandle() {
+  PERFETTO_CHECK(rpc_ == nullptr);  // Must be consumed or moved from.
+}
+
+Rpc::RequestHandle::RequestHandle(RequestHandle&& other) noexcept
+    : rpc_(other.rpc_), write_(std::move(other.write_)) {
+  other.rpc_ = nullptr;
+}
+
+Rpc::RequestHandle& Rpc::RequestHandle::operator=(
+    RequestHandle&& other) noexcept {
+  this->~RequestHandle();  // CHECKs that any reservation held was consumed.
+  new (this) RequestHandle(std::move(other));
+  return *this;
+}
+
+void Rpc::RequestHandle::EndRequest(size_t size_written) {
+  PERFETTO_CHECK(rpc_ != nullptr);
+  Rpc* rpc = rpc_;
+  rpc_ = nullptr;
+  write_.EndWrite(size_written);
+  rpc->DrainRxBuf();
+}
+
+void Rpc::RequestHandle::AbortRequest() {
+  PERFETTO_CHECK(rpc_ != nullptr);
+  rpc_ = nullptr;
+  write_.AbortWrite();
+}
+
+Rpc::RequestHandle Rpc::BeginRpcRequest(size_t size) {
+  return RequestHandle(this, rxbuf_.BeginWrite(size));
+}
+
+void Rpc::DrainRxBuf() {
   for (;;) {
     auto msg = rxbuf_.ReadMessage();
     if (!msg.valid()) {

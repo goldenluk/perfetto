@@ -17,8 +17,10 @@
 #ifndef INCLUDE_PERFETTO_EXT_PROTOZERO_PROTO_RING_BUFFER_H_
 #define INCLUDE_PERFETTO_EXT_PROTOZERO_PROTO_RING_BUFFER_H_
 
+#include <stddef.h>
 #include <stdint.h>
 
+#include "perfetto/base/compiler.h"
 #include "perfetto/ext/base/paged_memory.h"
 
 namespace protozero {
@@ -115,6 +117,46 @@ class RingBufferMessageReader {
   // Will invaildate the pointers previously handed out.
   void Append(const void* data, size_t len);
 
+  // A reservation of writable bytes at the write cursor. Move-only and must be
+  // consumed exactly once, by EndWrite() to keep what was written or
+  // AbortWrite() to discard it; letting one go out of scope unconsumed fails a
+  // CHECK. While one is outstanding the buffer will not recompact, grow, or
+  // hand out a second.
+  class WriteHandle {
+   public:
+    WriteHandle() = default;
+    ~WriteHandle();
+
+    WriteHandle(WriteHandle&&) noexcept;
+    WriteHandle& operator=(WriteHandle&&) noexcept;
+    WriteHandle(const WriteHandle&) = delete;
+    WriteHandle& operator=(const WriteHandle&) = delete;
+
+    uint8_t* data() const { return data_; }
+    size_t size() const { return size_; }
+
+    // Consume the handle: keep the first |size_written| bytes, or nothing.
+    void EndWrite(size_t size_written);
+    void AbortWrite();
+
+    // False once consumed or moved from.
+    explicit operator bool() const { return reader_ != nullptr; }
+
+   private:
+    friend class RingBufferMessageReader;
+    WriteHandle(RingBufferMessageReader* reader, uint8_t* data, size_t size)
+        : reader_(reader), data_(data), size_(size) {}
+
+    RingBufferMessageReader* reader_ = nullptr;
+    uint8_t* data_ = nullptr;
+    size_t size_ = 0;
+  };
+
+  // Zero-copy counterpart of Append(), for transports that can deposit their
+  // bytes straight into the ring buffer rather than into a staging buffer of
+  // their own (e.g. by passing the handle's data() to read(2)).
+  PERFETTO_WARN_UNUSED_RESULT WriteHandle BeginWrite(size_t size);
+
   // If a message can be read, it returns the boundaries of the message
   // (without including the preamble) and advances the read cursor.
   // If no message is available, returns a null range.
@@ -131,11 +173,16 @@ class RingBufferMessageReader {
   virtual Message TryReadMessage(const uint8_t* start, const uint8_t* end) = 0;
 
  private:
+  friend class WriteHandle;
+
+  void FinishWrite(size_t size_written);
+
   perfetto::base::PagedMemory buf_;
   Message fastpath_{};
   bool failed_ = false;  // Set in case of an unrecoverable framing faiulre.
   size_t rd_ = 0;        // Offset of the read cursor in |buf_|.
   size_t wr_ = 0;        // Offset of the write cursor in |buf_|.
+  bool write_in_flight_ = false;
 };
 
 class ProtoRingBuffer final : public RingBufferMessageReader {
