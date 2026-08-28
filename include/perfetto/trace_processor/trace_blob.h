@@ -54,6 +54,11 @@ class PERFETTO_EXPORT_COMPONENT TraceBlob : public RefCounted {
   static TraceBlob TakeOwnership(std::unique_ptr<uint8_t[]>, size_t size);
   static TraceBlob FromMmap(base::ScopedMmap);
 
+  // Wraps memory owned by |owner|, which is held for as long as this blob and
+  // every TraceBlobView onto it. Lets a transport hand the parser the buffer
+  // it received into, rather than a copy of it.
+  static TraceBlob Adopt(uint8_t* data, size_t size, std::shared_ptr<void>);
+
   // DEPRECATED: does not work on Windows.
   // Takes ownership of the mmap region. Will call munmap() on destruction.
   static TraceBlob FromMmap(void* data, size_t size);
@@ -72,7 +77,7 @@ class PERFETTO_EXPORT_COMPONENT TraceBlob : public RefCounted {
   size_t size() const { return size_; }
 
  private:
-  enum class Ownership { kNullOrMmapped = 0, kHeapBuf };
+  enum class Ownership { kNullOrMmapped = 0, kHeapBuf, kAdopted };
 
   TraceBlob(Ownership ownership, uint8_t* data, size_t size);
 
@@ -80,6 +85,7 @@ class PERFETTO_EXPORT_COMPONENT TraceBlob : public RefCounted {
   uint8_t* data_ = nullptr;
   size_t size_ = 0;
   std::unique_ptr<base::ScopedMmap> mapping_;
+  std::shared_ptr<void> owner_;  // Only set for kAdopted.
 };
 
 }  // namespace trace_processor

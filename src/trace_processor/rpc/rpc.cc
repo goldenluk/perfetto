@@ -703,7 +703,8 @@ void Rpc::ParseRpcRequest(Stream& stream, const uint8_t* data, size_t len) {
   }  // switch(req_type)
 }
 
-base::Status Rpc::Parse(const uint8_t* data, size_t len) {
+base::Status Rpc::Parse(TraceBlobView blob) {
+  const size_t len = blob.size();
   PERFETTO_TP_TRACE(
       metatrace::Category::API_TIMELINE, "RPC_PARSE",
       [&](metatrace::Record* r) { r->AddArg("length", std::to_string(len)); });
@@ -717,13 +718,16 @@ base::Status Rpc::Parse(const uint8_t* data, size_t len) {
   bytes_parsed_ += len;
   MaybePrintProgress();
 
-  if (len == 0)
+  if (blob.size() == 0)
     return base::OkStatus();
 
-  // TraceProcessor needs take ownership of the memory chunk.
-  std::unique_ptr<uint8_t[]> data_copy(new uint8_t[len]);
-  memcpy(data_copy.get(), data, len);
-  return trace_processor_->Parse(std::move(data_copy), len);
+  return trace_processor_->Parse(std::move(blob));
+}
+
+// Legacy entry point: the caller only lends us the bytes, so they have to be
+// copied for TraceProcessor to take ownership.
+base::Status Rpc::Parse(const uint8_t* data, size_t len) {
+  return Parse(TraceBlobView(TraceBlob::CopyFrom(data, len)));
 }
 
 base::Status Rpc::NotifyEndOfFile() {

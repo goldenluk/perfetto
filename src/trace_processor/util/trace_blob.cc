@@ -60,6 +60,17 @@ TraceBlob TraceBlob::TakeOwnership(std::unique_ptr<uint8_t[]> buf,
 }
 
 // static
+TraceBlob TraceBlob::Adopt(uint8_t* data,
+                           size_t size,
+                           std::shared_ptr<void> owner) {
+  PERFETTO_CHECK(data);
+  PERFETTO_CHECK(owner);
+  TraceBlob blob(Ownership::kAdopted, data, size);
+  blob.owner_ = std::move(owner);
+  return blob;
+}
+
+// static
 TraceBlob TraceBlob::FromMmap(base::ScopedMmap mapped) {
   PERFETTO_CHECK(mapped.IsValid());
   TraceBlob blob(Ownership::kNullOrMmapped,
@@ -99,6 +110,10 @@ TraceBlob::~TraceBlob() {
         PERFETTO_CHECK(mapping_->reset());
       }
       break;
+
+    case Ownership::kAdopted:
+      owner_.reset();  // The last reference frees the memory.
+      break;
   }
   data_ = nullptr;
   size_ = 0;
@@ -106,19 +121,21 @@ TraceBlob::~TraceBlob() {
 
 TraceBlob::TraceBlob(TraceBlob&& other) noexcept
     : RefCounted(std::move(other)) {
-  static_assert(
-      sizeof(*this) == base::AlignUp<sizeof(void*)>(
-                           sizeof(data_) + sizeof(size_) + sizeof(ownership_) +
-                           sizeof(mapping_) + sizeof(RefCounted)),
-      "TraceBlob move constructor needs updating");
+  static_assert(sizeof(*this) ==
+                    base::AlignUp<sizeof(void*)>(
+                        sizeof(data_) + sizeof(size_) + sizeof(ownership_) +
+                        sizeof(mapping_) + sizeof(owner_) + sizeof(RefCounted)),
+                "TraceBlob move constructor needs updating");
   data_ = other.data_;
   size_ = other.size_;
   ownership_ = other.ownership_;
   mapping_ = std::move(other.mapping_);
+  owner_ = std::move(other.owner_);
   other.data_ = nullptr;
   other.size_ = 0;
   other.ownership_ = Ownership::kNullOrMmapped;
   other.mapping_ = nullptr;
+  other.owner_ = nullptr;
 }
 
 TraceBlob& TraceBlob::operator=(TraceBlob&& other) noexcept {
