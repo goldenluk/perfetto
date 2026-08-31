@@ -331,7 +331,7 @@ export function SpaghettiPage(): m.Component<SpaghettiPage> {
       if (newId) (node as {id: string}).id = newId;
       if (node.inputs) {
         node.inputs = node.inputs.map((id) =>
-          id !== null ? oldToNew.get(id) ?? id : null,
+          id !== null ? (oldToNew.get(id) ?? id) : null,
         );
       }
       if (node.next) remapNode(node.next);
@@ -615,7 +615,7 @@ export function SpaghettiPage(): m.Component<SpaghettiPage> {
       if (pinnedNodeId !== undefined) {
         const pinnedNode = flatNodes.nodes[pinnedNodeId];
         const pinnedLabel = pinnedNode
-          ? getManifest(pinnedNode.type)?.title ?? pinnedNode.type
+          ? (getManifest(pinnedNode.type)?.title ?? pinnedNode.type)
           : pinnedNodeId;
         toolbarItems.push(
           m(Button, {
@@ -912,7 +912,7 @@ export function SpaghettiPage(): m.Component<SpaghettiPage> {
 
       // Build IR entries for the IR tab (pure function of graph, always fresh).
       const irEntries = activeNodeId
-        ? buildIR(flatNodes, activeNodeId, sqlModules) ?? []
+        ? (buildIR(flatNodes, activeNodeId, sqlModules) ?? [])
         : [];
 
       // Index report entries by hash for O(1) lookup per IR block.

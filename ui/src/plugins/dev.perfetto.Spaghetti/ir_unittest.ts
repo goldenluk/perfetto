@@ -83,7 +83,13 @@ describe('buildIR', () => {
       type: 'select',
       id: 's1',
       next: filter,
-      config: {entries: [{column: 'name', alias: ''}, {column: 'dur', alias: ''}], expressions: []},
+      config: {
+        entries: [
+          {column: 'name', alias: ''},
+          {column: 'dur', alias: ''},
+        ],
+        expressions: [],
+      },
     };
     const from: RootNodeData = {
       type: 'from',

@@ -16,13 +16,20 @@ import type {ColumnContext, IrContext, SqlStatement} from './node_types';
 import type {ColumnDef} from './graph_utils';
 // Port type is used for context but not directly needed here
 
-
 import {manifest as fromNode} from './nodes/from';
-import {manifest as filterNode, conditionsToSql, FilterOp} from './nodes/filter';
+import {
+  manifest as filterNode,
+  conditionsToSql,
+  FilterOp,
+} from './nodes/filter';
 import {manifest as selectNode} from './nodes/select';
 import {manifest as joinNode, getExtendColumnAliases} from './nodes/join';
 import {manifest as groupByNode} from './nodes/groupby';
-import {manifest as sortNode, getSortConditions, sortConditionsToSql} from './nodes/sort';
+import {
+  manifest as sortNode,
+  getSortConditions,
+  sortConditionsToSql,
+} from './nodes/sort';
 import {manifest as unionNode} from './nodes/union';
 import {manifest as sqlNode} from './nodes/sql';
 import {manifest as extendNode} from './nodes/extend';
@@ -39,7 +46,7 @@ function makeIrContext(
   inputCols?: Record<string, ColumnDef[]>,
 ): IrContext {
   return {
-    inputPorts: Object.keys(inputRefs).map(name => ({name, content: name})),
+    inputPorts: Object.keys(inputRefs).map((name) => ({name, content: name})),
     getInputRef: (portName: string) => inputRefs[portName] ?? '',
     getInputColumns: (portName: string) => inputCols?.[portName] ?? undefined,
   };
@@ -49,14 +56,17 @@ function makeColumnContext(
   inputCols: Record<string, ColumnDef[]>,
 ): ColumnContext {
   return {
-    inputPorts: Object.keys(inputCols).map(name => ({name, content: name})),
+    inputPorts: Object.keys(inputCols).map((name) => ({name, content: name})),
     getInputColumns: (portName: string) => inputCols[portName],
     sqlModules: undefined,
   };
 }
 
 // Helper to create filter configs without type issues
-function filterConfig(conds: {column: string; op: string; value: string}[], conjunction?: 'AND' | 'OR'): any {
+function filterConfig(
+  conds: {column: string; op: string; value: string}[],
+  conjunction?: 'AND' | 'OR',
+): any {
   return {conditions: conds, conjunction};
 }
 
@@ -81,16 +91,24 @@ function extendConfig(entries: any[]): any {
 }
 
 // Helper to create join configs
-function joinConfig(leftCol: string, rightCol: string, joinType: 'LEFT' | 'INNER' = 'LEFT', cols?: any[]): any {
-  return {joinType, leftColumn: leftCol, rightColumn: rightCol, columns: cols ?? []};
+function joinConfig(
+  leftCol: string,
+  rightCol: string,
+  joinType: 'LEFT' | 'INNER' = 'LEFT',
+  cols?: any[],
+): any {
+  return {
+    joinType,
+    leftColumn: leftCol,
+    rightColumn: rightCol,
+    columns: cols ?? [],
+  };
 }
 
 // Helper to create limit configs
 function limitConfig(count: string): any {
   return {limitCount: count};
 }
-
-
 
 // Helper to create sql configs
 function sqlConfig(sql: string, inputPorts?: string[], columns?: any[]): any {
@@ -113,8 +131,16 @@ function extractArgConfig(argSetIdCol: string, extractions: any[]): any {
 }
 
 // Helper to create intervalIntersect configs
-function intervalIntersectConfig(numInputs: number, partitionCols: string[], filterNeg: boolean): any {
-  return {numInputs, partitionColumns: partitionCols, filterNegativeDur: filterNeg};
+function intervalIntersectConfig(
+  numInputs: number,
+  partitionCols: string[],
+  filterNeg: boolean,
+): any {
+  return {
+    numInputs,
+    partitionColumns: partitionCols,
+    filterNegativeDur: filterNeg,
+  };
 }
 
 // ============================================================================
@@ -141,7 +167,10 @@ describe('From manifest', () => {
   });
 
   it('emitIr handles table names with underscores', () => {
-    const result = fromNode.emitIr!({table: 'android_perfetto_slices'}, makeIrContext({}));
+    const result = fromNode.emitIr!(
+      {table: 'android_perfetto_slices'},
+      makeIrContext({}),
+    );
     expect(result?.sql).toBe('SELECT *\nFROM android_perfetto_slices');
   });
 
@@ -165,68 +194,116 @@ describe('Filter manifest', () => {
   });
 
   it('isValid accepts condition with empty column (no-op)', () => {
-    expect(filterNode.isValid({conditions: [{column: '', op: '>', value: '1000'}]})).toBe(true);
+    expect(
+      filterNode.isValid({conditions: [{column: '', op: '>', value: '1000'}]}),
+    ).toBe(true);
   });
 
   it('isValid requires value for non-NULL ops with column', () => {
-    expect(filterNode.isValid({conditions: [{column: 'dur', op: '>', value: '1000'}]})).toBe(true);
-    expect(filterNode.isValid({conditions: [{column: 'dur', op: '>', value: ''}]})).toBe(false);
+    expect(
+      filterNode.isValid({
+        conditions: [{column: 'dur', op: '>', value: '1000'}],
+      }),
+    ).toBe(true);
+    expect(
+      filterNode.isValid({conditions: [{column: 'dur', op: '>', value: ''}]}),
+    ).toBe(false);
   });
 
   it('isValid accepts IS NULL without value', () => {
-    expect(filterNode.isValid({conditions: [{column: 'dur', op: 'IS NULL', value: ''}]})).toBe(true);
+    expect(
+      filterNode.isValid({
+        conditions: [{column: 'dur', op: 'IS NULL', value: ''}],
+      }),
+    ).toBe(true);
   });
 
   it('isValid accepts IS NOT NULL without value', () => {
-    expect(filterNode.isValid({conditions: [{column: 'dur', op: 'IS NOT NULL', value: ''}]})).toBe(true);
+    expect(
+      filterNode.isValid({
+        conditions: [{column: 'dur', op: 'IS NOT NULL', value: ''}],
+      }),
+    ).toBe(true);
   });
 
   it('tryFold appends WHERE clause', () => {
     const stmt: SqlStatement = {columns: '*', from: '_qb_abcd'};
-    const result = filterNode.tryFold!(stmt, filterConfig([{column: 'dur', op: '>', value: '1000'}]));
+    const result = filterNode.tryFold!(
+      stmt,
+      filterConfig([{column: 'dur', op: '>', value: '1000'}]),
+    );
     expect(result).toBe(true);
     expect(stmt.where).toBe('dur > 1000');
   });
 
   it('tryFold appends to existing WHERE with AND', () => {
     const stmt: SqlStatement = {columns: '*', from: '_qb_abcd', where: 'x > 1'};
-    const result = filterNode.tryFold!(stmt, filterConfig([{column: 'dur', op: '>', value: '1000'}]));
+    const result = filterNode.tryFold!(
+      stmt,
+      filterConfig([{column: 'dur', op: '>', value: '1000'}]),
+    );
     expect(result).toBe(true);
     expect(stmt.where).toBe('(x > 1) AND (dur > 1000)');
   });
 
   it('tryFold does NOT fold when groupBy is present', () => {
-    const stmt: SqlStatement = {columns: '*', from: '_qb_abcd', groupBy: 'name'};
-    const result = filterNode.tryFold!(stmt, filterConfig([{column: 'dur', op: '>', value: '1000'}]));
+    const stmt: SqlStatement = {
+      columns: '*',
+      from: '_qb_abcd',
+      groupBy: 'name',
+    };
+    const result = filterNode.tryFold!(
+      stmt,
+      filterConfig([{column: 'dur', op: '>', value: '1000'}]),
+    );
     expect(result).toBe(false);
     expect(stmt.where).toBeUndefined();
   });
 
   it('tryFold does NOT fold when limit is present', () => {
     const stmt: SqlStatement = {columns: '*', from: '_qb_abcd', limit: 100};
-    const result = filterNode.tryFold!(stmt, filterConfig([{column: 'dur', op: '>', value: '1000'}]));
+    const result = filterNode.tryFold!(
+      stmt,
+      filterConfig([{column: 'dur', op: '>', value: '1000'}]),
+    );
     expect(result).toBe(false);
   });
 
   it('tryFold does NOT fold when orderBy is present', () => {
-    const stmt: SqlStatement = {columns: '*', from: '_qb_abcd', orderBy: 'dur DESC'};
-    const result = filterNode.tryFold!(stmt, filterConfig([{column: 'dur', op: '>', value: '1000'}]));
+    const stmt: SqlStatement = {
+      columns: '*',
+      from: '_qb_abcd',
+      orderBy: 'dur DESC',
+    };
+    const result = filterNode.tryFold!(
+      stmt,
+      filterConfig([{column: 'dur', op: '>', value: '1000'}]),
+    );
     expect(result).toBe(false);
   });
 
   it('tryFold with OR conjunction', () => {
     const stmt: SqlStatement = {columns: '*', from: '_qb_abcd'};
-    const result = filterNode.tryFold!(stmt, filterConfig(
-      [{column: 'dur', op: '>', value: '1000'}, {column: 'ts', op: '<', value: '500'}],
-      'OR',
-    ));
+    const result = filterNode.tryFold!(
+      stmt,
+      filterConfig(
+        [
+          {column: 'dur', op: '>', value: '1000'},
+          {column: 'ts', op: '<', value: '500'},
+        ],
+        'OR',
+      ),
+    );
     expect(result).toBe(true);
     expect(stmt.where).toBe('dur > 1000 OR ts < 500');
   });
 
   it('getOutputColumns passes through input columns', () => {
     const ctx = makeColumnContext({
-      input: [{name: 'ts', type: {kind: 'timestamp'}}, {name: 'dur', type: {kind: 'duration'}}],
+      input: [
+        {name: 'ts', type: {kind: 'timestamp'}},
+        {name: 'dur', type: {kind: 'duration'}},
+      ],
     });
     const result = filterNode.getOutputColumns!({conditions: []}, ctx);
     expect(result).toEqual([
@@ -236,7 +313,10 @@ describe('Filter manifest', () => {
   });
 
   it('defaultConfig returns empty conditions with AND', () => {
-    expect(filterNode.defaultConfig()).toEqual({conditions: [], conjunction: 'AND'});
+    expect(filterNode.defaultConfig()).toEqual({
+      conditions: [],
+      conjunction: 'AND',
+    });
   });
 });
 
@@ -246,63 +326,87 @@ describe('Filter manifest', () => {
 
 describe('conditionsToSql', () => {
   it('handles single condition', () => {
-    const conds: {column: string; op: string; value: string}[] = [{column: 'dur', op: '>', value: '1000'}];
+    const conds: {column: string; op: string; value: string}[] = [
+      {column: 'dur', op: '>', value: '1000'},
+    ];
     expect(conditionsToSql(conds as any)).toBe('dur > 1000');
   });
 
   it('handles IS NULL without value', () => {
-    const conds: {column: string; op: string; value: string}[] = [{column: 'name', op: 'IS NULL', value: ''}];
+    const conds: {column: string; op: string; value: string}[] = [
+      {column: 'name', op: 'IS NULL', value: ''},
+    ];
     expect(conditionsToSql(conds as any)).toBe('name IS NULL');
   });
 
   it('handles IS NOT NULL without value', () => {
-    const conds: {column: string; op: string; value: string}[] = [{column: 'name', op: 'IS NOT NULL', value: ''}];
+    const conds: {column: string; op: string; value: string}[] = [
+      {column: 'name', op: 'IS NOT NULL', value: ''},
+    ];
     expect(conditionsToSql(conds as any)).toBe('name IS NOT NULL');
   });
 
   it('quotes string values', () => {
-    const conds: {column: string; op: string; value: string}[] = [{column: 'name', op: '=', value: 'foo'}];
+    const conds: {column: string; op: string; value: string}[] = [
+      {column: 'name', op: '=', value: 'foo'},
+    ];
     expect(conditionsToSql(conds as any)).toBe("name = 'foo'");
   });
 
   it('does NOT quote numeric literals', () => {
-    const conds: {column: string; op: string; value: string}[] = [{column: 'dur', op: '>', value: '1000'}];
+    const conds: {column: string; op: string; value: string}[] = [
+      {column: 'dur', op: '>', value: '1000'},
+    ];
     expect(conditionsToSql(conds as any)).toBe('dur > 1000');
   });
 
   it('does NOT quote negative numbers', () => {
-    const conds: {column: string; op: string; value: string}[] = [{column: 'val', op: '=', value: '-42'}];
+    const conds: {column: string; op: string; value: string}[] = [
+      {column: 'val', op: '=', value: '-42'},
+    ];
     expect(conditionsToSql(conds as any)).toBe('val = -42');
   });
 
   it('does NOT quote floats', () => {
-    const conds: {column: string; op: string; value: string}[] = [{column: 'val', op: '=', value: '3.14'}];
+    const conds: {column: string; op: string; value: string}[] = [
+      {column: 'val', op: '=', value: '3.14'},
+    ];
     expect(conditionsToSql(conds as any)).toBe('val = 3.14');
   });
 
   it('does NOT quote scientific notation', () => {
-    const conds: {column: string; op: string; value: string}[] = [{column: 'val', op: '=', value: '1e10'}];
+    const conds: {column: string; op: string; value: string}[] = [
+      {column: 'val', op: '=', value: '1e10'},
+    ];
     expect(conditionsToSql(conds as any)).toBe('val = 1e10');
   });
 
   it('does NOT quote NULL keyword', () => {
-    const conds: {column: string; op: string; value: string}[] = [{column: 'val', op: '=', value: 'null'}];
+    const conds: {column: string; op: string; value: string}[] = [
+      {column: 'val', op: '=', value: 'null'},
+    ];
     expect(conditionsToSql(conds as any)).toBe('val = null');
   });
 
   it('does NOT quote already-quoted strings', () => {
-    const conds: {column: string; op: string; value: string}[] = [{column: 'name', op: '=', value: "'foo'"}];
+    const conds: {column: string; op: string; value: string}[] = [
+      {column: 'name', op: '=', value: "'foo'"},
+    ];
     expect(conditionsToSql(conds as any)).toBe("name = 'foo'");
   });
 
   it('escapes single quotes in values', () => {
-    const conds: {column: string; op: string; value: string}[] = [{column: 'name', op: '=', value: "it's"}];
+    const conds: {column: string; op: string; value: string}[] = [
+      {column: 'name', op: '=', value: "it's"},
+    ];
     expect(conditionsToSql(conds as any)).toBe("name = 'it''s'");
   });
 
   it('does NOT quote parenthesized expressions', () => {
-    const conds: {column: string; op: string; value: string}[] = [{column: 'val', op: '=', value: '(1,2,3)'}];
-    expect(conditionsToSql(conds as any)).toBe("val = (1,2,3)");
+    const conds: {column: string; op: string; value: string}[] = [
+      {column: 'val', op: '=', value: '(1,2,3)'},
+    ];
+    expect(conditionsToSql(conds as any)).toBe('val = (1,2,3)');
   });
 
   it('combines conditions with AND by default', () => {
@@ -310,7 +414,9 @@ describe('conditionsToSql', () => {
       {column: 'dur', op: '>', value: '1000'},
       {column: 'ts', op: '<', value: '500'},
     ];
-    expect(conditionsToSql(conds as any, 'AND')).toBe('dur > 1000 AND ts < 500');
+    expect(conditionsToSql(conds as any, 'AND')).toBe(
+      'dur > 1000 AND ts < 500',
+    );
   });
 
   it('combines conditions with OR', () => {
@@ -337,21 +443,37 @@ describe('conditionsToSql', () => {
   });
 
   it('handles all comparison FILTER_OPS', () => {
-    const ops: FilterOp[] = ['=', '!=', '>', '>=', '<', '<=', 'LIKE', 'NOT LIKE', 'GLOB'];
+    const ops: FilterOp[] = [
+      '=',
+      '!=',
+      '>',
+      '>=',
+      '<',
+      '<=',
+      'LIKE',
+      'NOT LIKE',
+      'GLOB',
+    ];
     for (const op of ops) {
-      const conds: {column: string; op: string; value: string}[] = [{column: 'col', op, value: 'val'}];
+      const conds: {column: string; op: string; value: string}[] = [
+        {column: 'col', op, value: 'val'},
+      ];
       const sql = conditionsToSql(conds as any);
       expect(sql).toContain(`col ${op} 'val'`);
     }
   });
 
   it('handles LIKE operator', () => {
-    const conds: {column: string; op: string; value: string}[] = [{column: 'name', op: 'LIKE', value: '%foo%'}];
+    const conds: {column: string; op: string; value: string}[] = [
+      {column: 'name', op: 'LIKE', value: '%foo%'},
+    ];
     expect(conditionsToSql(conds as any)).toBe("name LIKE '%foo%'");
   });
 
   it('handles GLOB operator', () => {
-    const conds: {column: string; op: string; value: string}[] = [{column: 'name', op: 'GLOB', value: '*foo*'}];
+    const conds: {column: string; op: string; value: string}[] = [
+      {column: 'name', op: 'GLOB', value: '*foo*'},
+    ];
     expect(conditionsToSql(conds as any)).toBe("name GLOB '*foo*'");
   });
 });
@@ -368,38 +490,56 @@ describe('Select manifest', () => {
 
   it('tryFold with entries replaces SELECT *', () => {
     const stmt: SqlStatement = {columns: '*', from: '_qb_abcd'};
-    const result = selectNode.tryFold!(stmt, selectConfig([{column: 'name', alias: ''}, {column: 'dur', alias: ''}]));
+    const result = selectNode.tryFold!(
+      stmt,
+      selectConfig([
+        {column: 'name', alias: ''},
+        {column: 'dur', alias: ''},
+      ]),
+    );
     expect(result).toBe(true);
     expect(stmt.columns).toBe('name, dur');
   });
 
   it('tryFold with entries and aliases', () => {
     const stmt: SqlStatement = {columns: '*', from: '_qb_abcd'};
-    const result = selectNode.tryFold!(stmt, selectConfig([{column: 'name', alias: 'n'}]));
+    const result = selectNode.tryFold!(
+      stmt,
+      selectConfig([{column: 'name', alias: 'n'}]),
+    );
     expect(result).toBe(true);
     expect(stmt.columns).toBe('name AS n');
   });
 
   it('tryFold without entries keeps * and appends expressions', () => {
     const stmt: SqlStatement = {columns: '*', from: '_qb_abcd'};
-    const result = selectNode.tryFold!(stmt, selectConfig(undefined, [{expression: 'dur * 1000', alias: 'dur_ms'}]));
+    const result = selectNode.tryFold!(
+      stmt,
+      selectConfig(undefined, [{expression: 'dur * 1000', alias: 'dur_ms'}]),
+    );
     expect(result).toBe(true);
     expect(stmt.columns).toBe('*, dur * 1000 AS dur_ms');
   });
 
   it('tryFold with both entries and expressions', () => {
     const stmt: SqlStatement = {columns: '*', from: '_qb_abcd'};
-    const result = selectNode.tryFold!(stmt, selectConfig(
-      [{column: 'name', alias: ''}],
-      [{expression: 'COUNT(*)', alias: 'cnt'}],
-    ));
+    const result = selectNode.tryFold!(
+      stmt,
+      selectConfig(
+        [{column: 'name', alias: ''}],
+        [{expression: 'COUNT(*)', alias: 'cnt'}],
+      ),
+    );
     expect(result).toBe(true);
     expect(stmt.columns).toBe('name, COUNT(*) AS cnt');
   });
 
   it('tryFold does NOT fold when columns is not *', () => {
     const stmt: SqlStatement = {columns: 'name, dur', from: '_qb_abcd'};
-    const result = selectNode.tryFold!(stmt, selectConfig([{column: 'ts', alias: ''}]));
+    const result = selectNode.tryFold!(
+      stmt,
+      selectConfig([{column: 'ts', alias: ''}]),
+    );
     expect(result).toBe(false);
   });
 
@@ -410,23 +550,35 @@ describe('Select manifest', () => {
   });
 
   it('getOutputColumns resolves selected columns with aliases', () => {
-    const ctx = makeColumnContext({input: [{name: 'ts'}, {name: 'dur', type: {kind: 'duration'}}]});
-    const result = selectNode.getOutputColumns!({entries: [{column: 'dur', alias: 'duration'}]}, ctx);
+    const ctx = makeColumnContext({
+      input: [{name: 'ts'}, {name: 'dur', type: {kind: 'duration'}}],
+    });
+    const result = selectNode.getOutputColumns!(
+      {entries: [{column: 'dur', alias: 'duration'}]},
+      ctx,
+    );
     expect(result).toEqual([{name: 'duration', type: {kind: 'duration'}}]);
   });
 
   it('getOutputColumns adds expression aliases', () => {
     const ctx = makeColumnContext({input: [{name: 'ts'}]});
-    const result = selectNode.getOutputColumns!({expressions: [{expression: 'COUNT(*)', alias: 'cnt'}]}, ctx);
+    const result = selectNode.getOutputColumns!(
+      {expressions: [{expression: 'COUNT(*)', alias: 'cnt'}]},
+      ctx,
+    );
     expect(result).toEqual([{name: 'ts'}, {name: 'cnt'}]);
   });
 
   it('isValid rejects alias without expression', () => {
-    expect(selectNode.isValid({expressions: [{expression: '', alias: 'foo'}]})).toBe(false);
+    expect(
+      selectNode.isValid({expressions: [{expression: '', alias: 'foo'}]}),
+    ).toBe(false);
   });
 
   it('isValid accepts expression without alias', () => {
-    expect(selectNode.isValid({expressions: [{expression: 'COUNT(*)', alias: ''}]})).toBe(true);
+    expect(
+      selectNode.isValid({expressions: [{expression: 'COUNT(*)', alias: ''}]}),
+    ).toBe(true);
   });
 
   it('defaultConfig returns empty entries and expressions', () => {
@@ -445,7 +597,12 @@ describe('Join manifest', () => {
   });
 
   it('has two input ports', () => {
-    const inputs = joinNode.getInputs!({joinType: 'LEFT', leftColumn: '', rightColumn: '', columns: []});
+    const inputs = joinNode.getInputs!({
+      joinType: 'LEFT',
+      leftColumn: '',
+      rightColumn: '',
+      columns: [],
+    });
     expect(inputs).toHaveLength(2);
     expect(inputs[0].name).toBe('left');
     expect(inputs[1].name).toBe('right');
@@ -456,7 +613,10 @@ describe('Join manifest', () => {
       joinConfig('ts', 'ts'),
       makeIrContext(
         {left: '_qb_1111', right: '_qb_2222'},
-        {left: [{name: 'ts', type: {kind: 'timestamp'}}], right: [{name: 'ts', type: {kind: 'timestamp'}}]},
+        {
+          left: [{name: 'ts', type: {kind: 'timestamp'}}],
+          right: [{name: 'ts', type: {kind: 'timestamp'}}],
+        },
       ),
     );
     expect(result?.sql).toContain('LEFT JOIN');
@@ -491,7 +651,10 @@ describe('Join manifest', () => {
       joinConfig('ts', 'ts', 'LEFT', [{column: 'dur', alias: 'duration'}]),
       makeIrContext(
         {left: '_qb_1111', right: '_qb_2222'},
-        {left: [{name: 'ts'}], right: [{name: 'dur', type: {kind: 'duration'}}]},
+        {
+          left: [{name: 'ts'}],
+          right: [{name: 'dur', type: {kind: 'duration'}}],
+        },
       ),
     );
     expect(result?.sql).toContain('l.*');
@@ -525,14 +688,32 @@ describe('Join manifest', () => {
   });
 
   it('isValid requires both left and right columns', () => {
-    expect(joinNode.isValid({joinType: 'LEFT', leftColumn: 'ts', rightColumn: ''})).toBe(false);
-    expect(joinNode.isValid({joinType: 'LEFT', leftColumn: '', rightColumn: 'ts'})).toBe(false);
-    expect(joinNode.isValid({joinType: 'LEFT', leftColumn: 'ts', rightColumn: 'ts'})).toBe(true);
+    expect(
+      joinNode.isValid({joinType: 'LEFT', leftColumn: 'ts', rightColumn: ''}),
+    ).toBe(false);
+    expect(
+      joinNode.isValid({joinType: 'LEFT', leftColumn: '', rightColumn: 'ts'}),
+    ).toBe(false);
+    expect(
+      joinNode.isValid({joinType: 'LEFT', leftColumn: 'ts', rightColumn: 'ts'}),
+    ).toBe(true);
   });
 
   it('resolveIcon returns correct icon based on joinType', () => {
-    expect(joinNode.resolveIcon?.({joinType: 'LEFT' as const, leftColumn: '', rightColumn: ''})).toBe('join_left');
-    expect(joinNode.resolveIcon?.({joinType: 'INNER' as const, leftColumn: '', rightColumn: ''})).toBe('join_inner');
+    expect(
+      joinNode.resolveIcon?.({
+        joinType: 'LEFT' as const,
+        leftColumn: '',
+        rightColumn: '',
+      }),
+    ).toBe('join_left');
+    expect(
+      joinNode.resolveIcon?.({
+        joinType: 'INNER' as const,
+        leftColumn: '',
+        rightColumn: '',
+      }),
+    ).toBe('join_inner');
   });
 
   it('defaultConfig', () => {
@@ -552,7 +733,12 @@ describe('Join manifest', () => {
 describe('getExtendColumnAliases', () => {
   it('uses explicit alias when provided', () => {
     const result = getExtendColumnAliases(
-      {columns: [{column: 'dur', alias: 'duration'}], leftColumn: '', rightColumn: '', joinType: 'LEFT'},
+      {
+        columns: [{column: 'dur', alias: 'duration'}],
+        leftColumn: '',
+        rightColumn: '',
+        joinType: 'LEFT',
+      },
       ['ts'],
     );
     expect(result[0].alias).toBe('duration');
@@ -560,7 +746,12 @@ describe('getExtendColumnAliases', () => {
 
   it('prefers left set name (no prefix) when column not in left', () => {
     const result = getExtendColumnAliases(
-      {columns: [{column: 'dur', alias: ''}], leftColumn: '', rightColumn: '', joinType: 'LEFT'},
+      {
+        columns: [{column: 'dur', alias: ''}],
+        leftColumn: '',
+        rightColumn: '',
+        joinType: 'LEFT',
+      },
       ['ts'],
     );
     expect(result[0].alias).toBe('dur');
@@ -568,7 +759,12 @@ describe('getExtendColumnAliases', () => {
 
   it('adds right_ prefix when column exists in left', () => {
     const result = getExtendColumnAliases(
-      {columns: [{column: 'ts', alias: ''}], leftColumn: '', rightColumn: '', joinType: 'LEFT'},
+      {
+        columns: [{column: 'ts', alias: ''}],
+        leftColumn: '',
+        rightColumn: '',
+        joinType: 'LEFT',
+      },
       ['ts'],
     );
     expect(result[0].alias).toBe('right_ts');
@@ -594,14 +790,23 @@ describe('GroupBy manifest', () => {
   });
 
   it('isValid requires at least one group column', () => {
-    expect(groupByNode.isValid({groupColumns: [], aggregations: []})).toBe(false);
-    expect(groupByNode.isValid({groupColumns: ['name'], aggregations: []})).toBe(true);
-    expect(groupByNode.isValid({groupColumns: ['', 'name'], aggregations: []})).toBe(true);
+    expect(groupByNode.isValid({groupColumns: [], aggregations: []})).toBe(
+      false,
+    );
+    expect(
+      groupByNode.isValid({groupColumns: ['name'], aggregations: []}),
+    ).toBe(true);
+    expect(
+      groupByNode.isValid({groupColumns: ['', 'name'], aggregations: []}),
+    ).toBe(true);
   });
 
   it('tryFold produces GROUP BY and aggregation SELECT', () => {
     const stmt: SqlStatement = {columns: '*', from: '_qb_abcd'};
-    const result = groupByNode.tryFold!(stmt, groupByConfig(['name'], [{func: 'COUNT', column: '*', alias: 'cnt'}]));
+    const result = groupByNode.tryFold!(
+      stmt,
+      groupByConfig(['name'], [{func: 'COUNT', column: '*', alias: 'cnt'}]),
+    );
     expect(result).toBe(true);
     expect(stmt.columns).toBe('name, COUNT(*) AS cnt');
     expect(stmt.groupBy).toBe('name');
@@ -614,7 +819,11 @@ describe('GroupBy manifest', () => {
   });
 
   it('tryFold does NOT fold when groupBy is already set', () => {
-    const stmt: SqlStatement = {columns: '*', from: '_qb_abcd', groupBy: 'name'};
+    const stmt: SqlStatement = {
+      columns: '*',
+      from: '_qb_abcd',
+      groupBy: 'name',
+    };
     const result = groupByNode.tryFold!(stmt, groupByConfig(['ts'], []));
     expect(result).toBe(false);
   });
@@ -626,40 +835,69 @@ describe('GroupBy manifest', () => {
   });
 
   it('tryFold does NOT fold when orderBy is present', () => {
-    const stmt: SqlStatement = {columns: '*', from: '_qb_abcd', orderBy: 'name'};
+    const stmt: SqlStatement = {
+      columns: '*',
+      from: '_qb_abcd',
+      orderBy: 'name',
+    };
     const result = groupByNode.tryFold!(stmt, groupByConfig(['name'], []));
     expect(result).toBe(false);
   });
 
   it('tryFold with multiple group columns', () => {
     const stmt: SqlStatement = {columns: '*', from: '_qb_abcd'};
-    groupByNode.tryFold!(stmt, groupByConfig(['name', 'pid'], [{func: 'COUNT', column: '*', alias: 'cnt'}]));
+    groupByNode.tryFold!(
+      stmt,
+      groupByConfig(
+        ['name', 'pid'],
+        [{func: 'COUNT', column: '*', alias: 'cnt'}],
+      ),
+    );
     expect(stmt.columns).toBe('name, pid, COUNT(*) AS cnt');
     expect(stmt.groupBy).toBe('name, pid');
   });
 
   it('tryFold with multiple aggregations', () => {
     const stmt: SqlStatement = {columns: '*', from: '_qb_abcd'};
-    groupByNode.tryFold!(stmt, groupByConfig(['name'], [
-      {func: 'COUNT', column: '*', alias: 'cnt'},
-      {func: 'SUM', column: 'dur', alias: 'total_dur'},
-    ]));
+    groupByNode.tryFold!(
+      stmt,
+      groupByConfig(
+        ['name'],
+        [
+          {func: 'COUNT', column: '*', alias: 'cnt'},
+          {func: 'SUM', column: 'dur', alias: 'total_dur'},
+        ],
+      ),
+    );
     expect(stmt.columns).toBe('name, COUNT(*) AS cnt, SUM(dur) AS total_dur');
   });
 
   it('getOutputColumns resolves group columns and aggregation aliases', () => {
-    const ctx = makeColumnContext({input: [{name: 'name'}, {name: 'dur', type: {kind: 'duration'}}]});
+    const ctx = makeColumnContext({
+      input: [{name: 'name'}, {name: 'dur', type: {kind: 'duration'}}],
+    });
     const result = groupByNode.getOutputColumns!(
-      {groupColumns: ['name'], aggregations: [{func: 'COUNT', column: '*', alias: 'cnt'}]},
+      {
+        groupColumns: ['name'],
+        aggregations: [{func: 'COUNT', column: '*', alias: 'cnt'}],
+      },
       ctx,
     );
-    expect(result).toEqual([{name: 'name'}, {name: 'cnt', type: {kind: 'int'}}]);
+    expect(result).toEqual([
+      {name: 'name'},
+      {name: 'cnt', type: {kind: 'int'}},
+    ]);
   });
 
   it('getOutputColumns infers aggregation types', () => {
-    const ctx = makeColumnContext({input: [{name: 'dur', type: {kind: 'duration'}}]});
+    const ctx = makeColumnContext({
+      input: [{name: 'dur', type: {kind: 'duration'}}],
+    });
     const result = groupByNode.getOutputColumns!(
-      {groupColumns: [], aggregations: [{func: 'SUM', column: 'dur', alias: ''}]},
+      {
+        groupColumns: [],
+        aggregations: [{func: 'SUM', column: 'dur', alias: ''}],
+      },
       ctx,
     );
     expect(result).toEqual([{name: 'sum_dur', type: {kind: 'duration'}}]);
@@ -668,23 +906,34 @@ describe('GroupBy manifest', () => {
   it('getOutputColumns defaults COUNT to int', () => {
     const ctx = makeColumnContext({input: [{name: 'x'}]});
     const result = groupByNode.getOutputColumns!(
-      {groupColumns: [], aggregations: [{func: 'COUNT', column: '*', alias: ''}]},
+      {
+        groupColumns: [],
+        aggregations: [{func: 'COUNT', column: '*', alias: ''}],
+      },
       ctx,
     );
     expect(result).toEqual([{name: 'count_star', type: {kind: 'int'}}]);
   });
 
   it('aggregation aliases default to func_column format', () => {
-    const ctx = makeColumnContext({input: [{name: 'dur', type: {kind: 'duration'}}]});
+    const ctx = makeColumnContext({
+      input: [{name: 'dur', type: {kind: 'duration'}}],
+    });
     const result = groupByNode.getOutputColumns!(
-      {groupColumns: [], aggregations: [{func: 'AVG', column: 'dur', alias: ''}]},
+      {
+        groupColumns: [],
+        aggregations: [{func: 'AVG', column: 'dur', alias: ''}],
+      },
       ctx,
     );
     expect(result).toEqual([{name: 'avg_dur', type: {kind: 'duration'}}]);
   });
 
   it('defaultConfig returns empty arrays', () => {
-    expect(groupByNode.defaultConfig()).toEqual({groupColumns: [], aggregations: []});
+    expect(groupByNode.defaultConfig()).toEqual({
+      groupColumns: [],
+      aggregations: [],
+    });
   });
 });
 
@@ -699,9 +948,27 @@ describe('Sort manifest', () => {
   });
 
   it('isValid requires at least one sort condition', () => {
-    expect(sortNode.isValid({sortColumn: '', sortOrder: 'ASC' as const, conditions: []})).toBe(false);
-    expect(sortNode.isValid({sortColumn: 'dur', sortOrder: 'ASC' as const, conditions: []})).toBe(true);
-    expect(sortNode.isValid({sortColumn: '', sortOrder: 'ASC' as const, conditions: [{column: 'dur', order: 'ASC' as const}]})).toBe(true);
+    expect(
+      sortNode.isValid({
+        sortColumn: '',
+        sortOrder: 'ASC' as const,
+        conditions: [],
+      }),
+    ).toBe(false);
+    expect(
+      sortNode.isValid({
+        sortColumn: 'dur',
+        sortOrder: 'ASC' as const,
+        conditions: [],
+      }),
+    ).toBe(true);
+    expect(
+      sortNode.isValid({
+        sortColumn: '',
+        sortOrder: 'ASC' as const,
+        conditions: [{column: 'dur', order: 'ASC' as const}],
+      }),
+    ).toBe(true);
   });
 
   it('tryFold appends ORDER BY', () => {
@@ -712,7 +979,11 @@ describe('Sort manifest', () => {
   });
 
   it('tryFold does NOT fold when orderBy is already set', () => {
-    const stmt: SqlStatement = {columns: '*', from: '_qb_abcd', orderBy: 'ts ASC'};
+    const stmt: SqlStatement = {
+      columns: '*',
+      from: '_qb_abcd',
+      orderBy: 'ts ASC',
+    };
     const result = sortNode.tryFold!(stmt, sortConfig('dur', 'DESC'));
     expect(result).toBe(false);
   });
@@ -725,22 +996,32 @@ describe('Sort manifest', () => {
 
   it('tryFold with multiple sort conditions', () => {
     const stmt: SqlStatement = {columns: '*', from: '_qb_abcd'};
-    const result = sortNode.tryFold!(stmt, sortConfig('', 'ASC', [
-      {column: 'dur', order: 'DESC' as const},
-      {column: 'ts', order: 'ASC' as const},
-    ]));
+    const result = sortNode.tryFold!(
+      stmt,
+      sortConfig('', 'ASC', [
+        {column: 'dur', order: 'DESC' as const},
+        {column: 'ts', order: 'ASC' as const},
+      ]),
+    );
     expect(result).toBe(true);
     expect(stmt.orderBy).toBe('dur DESC, ts ASC');
   });
 
   it('getOutputColumns passes through input columns', () => {
     const ctx = makeColumnContext({input: [{name: 'ts'}, {name: 'dur'}]});
-    const result = sortNode.getOutputColumns!({sortColumn: '', sortOrder: 'ASC' as const}, ctx);
+    const result = sortNode.getOutputColumns!(
+      {sortColumn: '', sortOrder: 'ASC' as const},
+      ctx,
+    );
     expect(result).toEqual([{name: 'ts'}, {name: 'dur'}]);
   });
 
   it('defaultConfig', () => {
-    expect(sortNode.defaultConfig()).toEqual({sortColumn: '', sortOrder: 'ASC' as const, conditions: []});
+    expect(sortNode.defaultConfig()).toEqual({
+      sortColumn: '',
+      sortOrder: 'ASC' as const,
+      conditions: [],
+    });
   });
 });
 
@@ -750,21 +1031,27 @@ describe('Sort manifest', () => {
 
 describe('sortConditionsToSql', () => {
   it('handles single condition', () => {
-    expect(sortConditionsToSql([{column: 'dur', order: 'DESC' as const}])).toBe('dur DESC');
+    expect(sortConditionsToSql([{column: 'dur', order: 'DESC' as const}])).toBe(
+      'dur DESC',
+    );
   });
 
   it('handles multiple conditions', () => {
-    expect(sortConditionsToSql([
-      {column: 'dur', order: 'DESC' as const},
-      {column: 'ts', order: 'ASC' as const},
-    ])).toBe('dur DESC, ts ASC');
+    expect(
+      sortConditionsToSql([
+        {column: 'dur', order: 'DESC' as const},
+        {column: 'ts', order: 'ASC' as const},
+      ]),
+    ).toBe('dur DESC, ts ASC');
   });
 
   it('filters out empty column names', () => {
-    expect(sortConditionsToSql([
-      {column: '', order: 'ASC' as const},
-      {column: 'dur', order: 'DESC' as const},
-    ])).toBe('dur DESC');
+    expect(
+      sortConditionsToSql([
+        {column: '', order: 'ASC' as const},
+        {column: 'dur', order: 'DESC' as const},
+      ]),
+    ).toBe('dur DESC');
   });
 
   it('returns empty string for all empty conditions', () => {
@@ -774,13 +1061,25 @@ describe('sortConditionsToSql', () => {
 
 describe('getSortConditions', () => {
   it('uses conditions when present', () => {
-    const config = {sortColumn: 'old', sortOrder: 'ASC' as const, conditions: [{column: 'new', order: 'DESC' as const}]};
-    expect(getSortConditions(config)).toEqual([{column: 'new', order: 'DESC' as const}]);
+    const config = {
+      sortColumn: 'old',
+      sortOrder: 'ASC' as const,
+      conditions: [{column: 'new', order: 'DESC' as const}],
+    };
+    expect(getSortConditions(config)).toEqual([
+      {column: 'new', order: 'DESC' as const},
+    ]);
   });
 
   it('migrates legacy single-column format', () => {
-    const config = {sortColumn: 'dur', sortOrder: 'DESC' as const, conditions: []};
-    expect(getSortConditions(config)).toEqual([{column: 'dur', order: 'DESC' as const}]);
+    const config = {
+      sortColumn: 'dur',
+      sortOrder: 'DESC' as const,
+      conditions: [],
+    };
+    expect(getSortConditions(config)).toEqual([
+      {column: 'dur', order: 'DESC' as const},
+    ]);
   });
 
   it('returns empty array for empty legacy config', () => {
@@ -807,40 +1106,49 @@ describe('Union manifest', () => {
   });
 
   it('emitIr with 2 inputs produces UNION ALL', () => {
-    const result = unionNode.emitIr!(unionConfig(false, 2), makeIrContext(
-      {input_0: '_qb_aaaa', input_1: '_qb_bbbb'},
-      {input_0: [{name: 'x'}], input_1: [{name: 'x'}]},
-    ));
+    const result = unionNode.emitIr!(
+      unionConfig(false, 2),
+      makeIrContext(
+        {input_0: '_qb_aaaa', input_1: '_qb_bbbb'},
+        {input_0: [{name: 'x'}], input_1: [{name: 'x'}]},
+      ),
+    );
     expect(result?.sql).toContain('UNION ALL');
   });
 
   it('emitIr with distinct produces UNION', () => {
-    const result = unionNode.emitIr!(unionConfig(true, 2), makeIrContext(
-      {input_0: '_qb_aaaa', input_1: '_qb_bbbb'},
-      {input_0: [{name: 'x'}], input_1: [{name: 'x'}]},
-    ));
+    const result = unionNode.emitIr!(
+      unionConfig(true, 2),
+      makeIrContext(
+        {input_0: '_qb_aaaa', input_1: '_qb_bbbb'},
+        {input_0: [{name: 'x'}], input_1: [{name: 'x'}]},
+      ),
+    );
     expect(result?.sql).toContain('UNION');
     expect(result?.sql).not.toContain('UNION ALL');
   });
 
   it('emitIr with 1 input produces SELECT * FROM that input', () => {
-    const result = unionNode.emitIr!(unionConfig(false, 1), makeIrContext(
-      {input_0: '_qb_aaaa'},
-      {input_0: [{name: 'x'}]},
-    ));
+    const result = unionNode.emitIr!(
+      unionConfig(false, 1),
+      makeIrContext({input_0: '_qb_aaaa'}, {input_0: [{name: 'x'}]}),
+    );
     expect(result?.sql).toBe('SELECT *\nFROM _qb_aaaa');
   });
 
   it('emitIr with 0 inputs returns undefined', () => {
-    const result = unionNode.emitIr!(unionConfig(false, 0), makeIrContext({}, {}));
+    const result = unionNode.emitIr!(
+      unionConfig(false, 0),
+      makeIrContext({}, {}),
+    );
     expect(result).toBeUndefined();
   });
 
   it('emitIr with 3 inputs', () => {
-    const result = unionNode.emitIr!(unionConfig(false, 3), makeIrContext(
-      {input_0: '_qb_a', input_1: '_qb_b', input_2: '_qb_c'},
-      {},
-    ));
+    const result = unionNode.emitIr!(
+      unionConfig(false, 3),
+      makeIrContext({input_0: '_qb_a', input_1: '_qb_b', input_2: '_qb_c'}, {}),
+    );
     expect(result?.sql).toContain('UNION ALL');
     expect(result?.sql).toContain('_qb_a');
     expect(result?.sql).toContain('_qb_b');
@@ -848,14 +1156,23 @@ describe('Union manifest', () => {
   });
 
   it('getOutputColumns returns first available input columns', () => {
-    const ctx = makeColumnContext({input_0: [{name: 'x'}, {name: 'y'}], input_1: [{name: 'a'}, {name: 'b'}]});
-    const result = unionNode.getOutputColumns!({distinct: false, numInputs: 2}, ctx);
+    const ctx = makeColumnContext({
+      input_0: [{name: 'x'}, {name: 'y'}],
+      input_1: [{name: 'a'}, {name: 'b'}],
+    });
+    const result = unionNode.getOutputColumns!(
+      {distinct: false, numInputs: 2},
+      ctx,
+    );
     expect(result).toEqual([{name: 'x'}, {name: 'y'}]);
   });
 
   it('getOutputColumns returns undefined when no input columns', () => {
     const ctx = makeColumnContext({});
-    const result = unionNode.getOutputColumns!({distinct: false, numInputs: 2}, ctx);
+    const result = unionNode.getOutputColumns!(
+      {distinct: false, numInputs: 2},
+      ctx,
+    );
     expect(result).toBeUndefined();
   });
 
@@ -880,24 +1197,36 @@ describe('SQL manifest', () => {
   });
 
   it('emitIr with no inputs returns raw SQL', () => {
-    const result = sqlNode.emitIr!(sqlConfig('SELECT * FROM slice'), makeIrContext({}));
+    const result = sqlNode.emitIr!(
+      sqlConfig('SELECT * FROM slice'),
+      makeIrContext({}),
+    );
     expect(result?.sql).toBe('SELECT * FROM slice');
   });
 
   it('emitIr with inputs wraps them in CTEs', () => {
-    const result = sqlNode.emitIr!(sqlConfig('SELECT * FROM events', ['events']), makeIrContext({input_0: '_qb_1111'}));
+    const result = sqlNode.emitIr!(
+      sqlConfig('SELECT * FROM events', ['events']),
+      makeIrContext({input_0: '_qb_1111'}),
+    );
     expect(result?.sql).toContain('WITH');
     expect(result?.sql).toContain('events AS');
     expect(result?.sql).toContain('SELECT * FROM _qb_1111');
   });
 
   it('emitIr handles SQL that already starts with WITH', () => {
-    const result = sqlNode.emitIr!(sqlConfig('WITH cte AS (SELECT 1) SELECT * FROM cte'), makeIrContext({}));
+    const result = sqlNode.emitIr!(
+      sqlConfig('WITH cte AS (SELECT 1) SELECT * FROM cte'),
+      makeIrContext({}),
+    );
     expect(result?.sql).toBe('WITH cte AS (SELECT 1) SELECT * FROM cte');
   });
 
   it('emitIr with multiple inputs', () => {
-    const result = sqlNode.emitIr!(sqlConfig('SELECT * FROM a JOIN b ON a.id = b.id', ['a', 'b']), makeIrContext({input_0: '_qb_aaa', input_1: '_qb_bbb'}));
+    const result = sqlNode.emitIr!(
+      sqlConfig('SELECT * FROM a JOIN b ON a.id = b.id', ['a', 'b']),
+      makeIrContext({input_0: '_qb_aaa', input_1: '_qb_bbb'}),
+    );
     expect(result?.sql).toContain('WITH');
     expect(result?.sql).toContain('a AS');
     expect(result?.sql).toContain('b AS');
@@ -905,13 +1234,19 @@ describe('SQL manifest', () => {
   });
 
   it('emitIr with aliased inputs', () => {
-    const result = sqlNode.emitIr!(sqlConfig('SELECT * FROM events', ['events']), makeIrContext({input_0: '_qb_1111'}));
+    const result = sqlNode.emitIr!(
+      sqlConfig('SELECT * FROM events', ['events']),
+      makeIrContext({input_0: '_qb_1111'}),
+    );
     expect(result?.sql).toContain('events AS');
   });
 
   it('getOutputColumns returns user-defined columns', () => {
     const ctx = makeColumnContext({});
-    const result = sqlNode.getOutputColumns!(sqlConfig('SELECT 1', [], [{name: 'one', type: 'int'}]), ctx);
+    const result = sqlNode.getOutputColumns!(
+      sqlConfig('SELECT 1', [], [{name: 'one', type: 'int'}]),
+      ctx,
+    );
     expect(result).toEqual([{name: 'one', type: {kind: 'int'}}]);
   });
 
@@ -948,39 +1283,64 @@ describe('Extend manifest', () => {
 
   it('tryFold appends columns to SELECT', () => {
     const stmt: SqlStatement = {columns: '*', from: '_qb_abcd'};
-    const result = extendNode.tryFold!(stmt, extendConfig([{expression: 'dur * 1000', alias: 'dur_ms'}]));
+    const result = extendNode.tryFold!(
+      stmt,
+      extendConfig([{expression: 'dur * 1000', alias: 'dur_ms'}]),
+    );
     expect(result).toBe(true);
     expect(stmt.columns).toBe('*, dur * 1000 AS dur_ms');
   });
 
   it('tryFold does NOT fold when groupBy is present', () => {
-    const stmt: SqlStatement = {columns: '*', from: '_qb_abcd', groupBy: 'name'};
-    const result = extendNode.tryFold!(stmt, extendConfig([{expression: 'dur * 1000', alias: 'dur_ms'}]));
+    const stmt: SqlStatement = {
+      columns: '*',
+      from: '_qb_abcd',
+      groupBy: 'name',
+    };
+    const result = extendNode.tryFold!(
+      stmt,
+      extendConfig([{expression: 'dur * 1000', alias: 'dur_ms'}]),
+    );
     expect(result).toBe(false);
   });
 
   it('tryFold with multiple entries', () => {
     const stmt: SqlStatement = {columns: '*', from: '_qb_abcd'};
-    extendNode.tryFold!(stmt, extendConfig([
-      {expression: 'dur * 1000', alias: 'dur_ms'},
-      {expression: 'ts + 100', alias: 'ts_plus'},
-    ]));
+    extendNode.tryFold!(
+      stmt,
+      extendConfig([
+        {expression: 'dur * 1000', alias: 'dur_ms'},
+        {expression: 'ts + 100', alias: 'ts_plus'},
+      ]),
+    );
     expect(stmt.columns).toBe('*, dur * 1000 AS dur_ms, ts + 100 AS ts_plus');
   });
 
   it('tryFold skips empty expressions', () => {
     const stmt: SqlStatement = {columns: '*', from: '_qb_abcd'};
-    extendNode.tryFold!(stmt, extendConfig([{expression: '', alias: ''}, {expression: 'dur', alias: 'd'}]));
+    extendNode.tryFold!(
+      stmt,
+      extendConfig([
+        {expression: '', alias: ''},
+        {expression: 'dur', alias: 'd'},
+      ]),
+    );
     expect(stmt.columns).toBe('*, dur AS d');
   });
 
   it('getOutputColumns appends new column aliases', () => {
-    const ctx = makeColumnContext({input: [{name: 'ts'}, {name: 'dur', type: {kind: 'duration'}}]});
+    const ctx = makeColumnContext({
+      input: [{name: 'ts'}, {name: 'dur', type: {kind: 'duration'}}],
+    });
     const result = extendNode.getOutputColumns!(
       {entries: [{expression: 'dur * 1000', alias: 'dur_ms'}]},
       ctx,
     );
-    expect(result).toEqual([{name: 'ts'}, {name: 'dur', type: {kind: 'duration'}}, {name: 'dur_ms'}]);
+    expect(result).toEqual([
+      {name: 'ts'},
+      {name: 'dur', type: {kind: 'duration'}},
+      {name: 'dur_ms'},
+    ]);
   });
 
   it('getOutputColumns returns input columns when no entries', () => {
@@ -990,11 +1350,15 @@ describe('Extend manifest', () => {
   });
 
   it('isValid rejects alias without expression', () => {
-    expect(extendNode.isValid({entries: [{expression: '', alias: 'foo'}]})).toBe(false);
+    expect(
+      extendNode.isValid({entries: [{expression: '', alias: 'foo'}]}),
+    ).toBe(false);
   });
 
   it('isValid accepts expression without alias', () => {
-    expect(extendNode.isValid({entries: [{expression: 'dur', alias: ''}]})).toBe(true);
+    expect(
+      extendNode.isValid({entries: [{expression: 'dur', alias: ''}]}),
+    ).toBe(true);
   });
 
   it('defaultConfig returns empty entries', () => {
@@ -1014,7 +1378,9 @@ describe('Drop manifest', () => {
   });
 
   it('getOutputColumns removes dropped columns', () => {
-    const ctx = makeColumnContext({input: [{name: 'ts'}, {name: 'dur', type: {kind: 'duration'}}]});
+    const ctx = makeColumnContext({
+      input: [{name: 'ts'}, {name: 'dur', type: {kind: 'duration'}}],
+    });
     const result = dropNode.getOutputColumns!({columns: ['ts']}, ctx);
     expect(result).toEqual([{name: 'dur', type: {kind: 'duration'}}]);
   });
@@ -1032,26 +1398,29 @@ describe('Drop manifest', () => {
   });
 
   it('emitIr drops columns from SELECT', () => {
-    const result = dropNode.emitIr!({columns: ['ts']}, makeIrContext(
-      {input: '_qb_abcd'},
-      {input: [{name: 'ts'}, {name: 'dur'}]},
-    ));
+    const result = dropNode.emitIr!(
+      {columns: ['ts']},
+      makeIrContext(
+        {input: '_qb_abcd'},
+        {input: [{name: 'ts'}, {name: 'dur'}]},
+      ),
+    );
     expect(result?.sql).toBe('SELECT dur\nFROM _qb_abcd');
   });
 
   it('emitIr produces SELECT * when no columns to drop', () => {
-    const result = dropNode.emitIr!({columns: []}, makeIrContext(
-      {input: '_qb_abcd'},
-      {input: [{name: 'ts'}]},
-    ));
+    const result = dropNode.emitIr!(
+      {columns: []},
+      makeIrContext({input: '_qb_abcd'}, {input: [{name: 'ts'}]}),
+    );
     expect(result?.sql).toBe('SELECT *\nFROM _qb_abcd');
   });
 
   it('emitIr produces SELECT * when no input columns known', () => {
-    const result = dropNode.emitIr!({columns: ['ts']}, makeIrContext(
-      {input: '_qb_abcd'},
-      {},
-    ));
+    const result = dropNode.emitIr!(
+      {columns: ['ts']},
+      makeIrContext({input: '_qb_abcd'}, {}),
+    );
     expect(result?.sql).toBe('SELECT *\nFROM _qb_abcd');
   });
 
@@ -1117,13 +1486,18 @@ describe('TimeRange manifest', () => {
   });
 
   it('emitIr produces timestamp query', () => {
-    const result = timeRangeNode.emitIr!(timeRangeConfig('1000', '5000'), makeIrContext({}));
+    const result = timeRangeNode.emitIr!(
+      timeRangeConfig('1000', '5000'),
+      makeIrContext({}),
+    );
     expect(result?.sql).toBe('SELECT 0 AS id, 1000 AS ts, 5000 AS dur');
   });
 
   it('getOutputColumns returns id, ts, dur columns', () => {
     const result = timeRangeNode.getOutputColumns!(
-        timeRangeConfig('0', '0'), makeColumnContext({}));
+      timeRangeConfig('0', '0'),
+      makeColumnContext({}),
+    );
     expect(result).toEqual([
       {name: 'id', type: {kind: 'int'}},
       {name: 'ts', type: {kind: 'timestamp'}},
@@ -1155,14 +1529,24 @@ describe('ExtractArg manifest', () => {
 
   it('tryFold appends extract_arg expressions', () => {
     const stmt: SqlStatement = {columns: '*', from: '_qb_abcd'};
-    const result = extractArgNode.tryFold!(stmt, extractArgConfig('id', [{argName: 'pid', alias: ''}]));
+    const result = extractArgNode.tryFold!(
+      stmt,
+      extractArgConfig('id', [{argName: 'pid', alias: ''}]),
+    );
     expect(result).toBe(true);
     expect(stmt.columns).toContain("extract_arg(id, 'pid')");
   });
 
   it('tryFold does NOT fold when groupBy is present', () => {
-    const stmt: SqlStatement = {columns: '*', from: '_qb_abcd', groupBy: 'name'};
-    const result = extractArgNode.tryFold!(stmt, extractArgConfig('id', [{argName: 'pid', alias: ''}]));
+    const stmt: SqlStatement = {
+      columns: '*',
+      from: '_qb_abcd',
+      groupBy: 'name',
+    };
+    const result = extractArgNode.tryFold!(
+      stmt,
+      extractArgConfig('id', [{argName: 'pid', alias: ''}]),
+    );
     expect(result).toBe(false);
   });
 
@@ -1185,12 +1569,22 @@ describe('ExtractArg manifest', () => {
   });
 
   it('isValid always returns true (extractions always valid)', () => {
-    expect(extractArgNode.isValid({argSetIdCol: '', extractions: []})).toBe(true);
-    expect(extractArgNode.isValid({argSetIdCol: 'id', extractions: [{argName: 'pid', alias: ''}]})).toBe(true);
+    expect(extractArgNode.isValid({argSetIdCol: '', extractions: []})).toBe(
+      true,
+    );
+    expect(
+      extractArgNode.isValid({
+        argSetIdCol: 'id',
+        extractions: [{argName: 'pid', alias: ''}],
+      }),
+    ).toBe(true);
   });
 
   it('defaultConfig', () => {
-    expect(extractArgNode.defaultConfig()).toEqual({argSetIdCol: '', extractions: []});
+    expect(extractArgNode.defaultConfig()).toEqual({
+      argSetIdCol: '',
+      extractions: [],
+    });
   });
 });
 
@@ -1205,7 +1599,11 @@ describe('IntervalIntersect manifest', () => {
   });
 
   it('has dynamic input ports based on numInputs', () => {
-    const inputs = intervalIntersectNode.getInputs!({numInputs: 3, partitionColumns: [], filterNegativeDur: true});
+    const inputs = intervalIntersectNode.getInputs!({
+      numInputs: 3,
+      partitionColumns: [],
+      filterNegativeDur: true,
+    });
     expect(inputs).toHaveLength(3);
     expect(inputs[0].name).toBe('input_0');
     expect(inputs[2].name).toBe('input_2');
@@ -1216,7 +1614,10 @@ describe('IntervalIntersect manifest', () => {
       intervalIntersectConfig(2, [], true),
       makeIrContext(
         {input_0: '_qb_aaaa', input_1: '_qb_bbbb'},
-        {input_0: [{name: 'id', type: {kind: 'int'}}, {name: 'name'}], input_1: [{name: 'id', type: {kind: 'int'}}, {name: 'value'}]},
+        {
+          input_0: [{name: 'id', type: {kind: 'int'}}, {name: 'name'}],
+          input_1: [{name: 'id', type: {kind: 'int'}}, {name: 'value'}],
+        },
       ),
     );
     expect(result?.sql).toContain('_interval_intersect!');
@@ -1287,8 +1688,20 @@ describe('IntervalIntersect manifest', () => {
   });
 
   it('isValid always returns true', () => {
-    expect(intervalIntersectNode.isValid({numInputs: 2, partitionColumns: [], filterNegativeDur: true})).toBe(true);
-    expect(intervalIntersectNode.isValid({numInputs: 5, partitionColumns: ['pid'], filterNegativeDur: false})).toBe(true);
+    expect(
+      intervalIntersectNode.isValid({
+        numInputs: 2,
+        partitionColumns: [],
+        filterNegativeDur: true,
+      }),
+    ).toBe(true);
+    expect(
+      intervalIntersectNode.isValid({
+        numInputs: 5,
+        partitionColumns: ['pid'],
+        filterNegativeDur: false,
+      }),
+    ).toBe(true);
   });
 
   it('defaultConfig', () => {

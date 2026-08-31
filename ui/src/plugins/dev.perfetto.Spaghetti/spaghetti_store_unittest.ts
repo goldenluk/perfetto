@@ -13,7 +13,14 @@
 // limitations under the License.
 
 import type {NodeData, RootNodeData} from './graph_model';
-import {flattenNodes, chainTail, findConnectedInputs, getPrimaryInput, collectUpstream, findDockedParent} from './graph_utils';
+import {
+  flattenNodes,
+  chainTail,
+  findConnectedInputs,
+  getPrimaryInput,
+  collectUpstream,
+  findDockedParent,
+} from './graph_utils';
 
 // --- flattenNodes ---
 
@@ -105,8 +112,18 @@ describe('flattenNodes', () => {
 
   it('handles deeply nested chains', () => {
     const n3: NodeData = {type: 'limit', id: 'n3', config: {limit: 10}};
-    const n2: NodeData = {type: 'sort', id: 'n2', config: {sortColumn: '', sortOrder: 'ASC'}, next: n3};
-    const n1: NodeData = {type: 'filter', id: 'n1', config: {conditions: []}, next: n2};
+    const n2: NodeData = {
+      type: 'sort',
+      id: 'n2',
+      config: {sortColumn: '', sortOrder: 'ASC'},
+      next: n3,
+    };
+    const n1: NodeData = {
+      type: 'filter',
+      id: 'n1',
+      config: {conditions: []},
+      next: n2,
+    };
     const root: RootNodeData = {
       type: 'from',
       id: 'r1',
@@ -146,14 +163,24 @@ describe('chainTail', () => {
 
   it('returns the last node in a chain', () => {
     const tail: NodeData = {type: 'limit', id: 't1', config: {limit: 10}};
-    const head: NodeData = {type: 'from', id: 'h1', config: {table: 'slice'}, next: tail};
+    const head: NodeData = {
+      type: 'from',
+      id: 'h1',
+      config: {table: 'slice'},
+      next: tail,
+    };
     expect(chainTail(head)).toBe(tail);
   });
 
   it('handles long chains', () => {
     const n3: NodeData = {type: 'limit', id: 'n3', config: {limit: 10}};
     const n2: NodeData = {type: 'sort', id: 'n2', config: {}, next: n3};
-    const n1: NodeData = {type: 'filter', id: 'n1', config: {conditions: []}, next: n2};
+    const n1: NodeData = {
+      type: 'filter',
+      id: 'n1',
+      config: {conditions: []},
+      next: n2,
+    };
     expect(chainTail(n1)).toBe(n3);
   });
 });
@@ -185,7 +212,14 @@ describe('findConnectedInputs', () => {
     };
     // left is the root; left.next = join; right is a separate root
     const roots: RootNodeData[] = [
-      {type: 'from', id: 'left', x: 0, y: 0, config: {table: 'slice'}, next: join},
+      {
+        type: 'from',
+        id: 'left',
+        x: 0,
+        y: 0,
+        config: {table: 'slice'},
+        next: join,
+      },
       {type: 'from', id: 'right', x: 100, y: 100, config: {table: 'sched'}},
     ];
     const index = flattenNodes(roots);
@@ -199,7 +233,14 @@ describe('findConnectedInputs', () => {
   it('skips null entries in inputs array', () => {
     const roots: RootNodeData[] = [
       {type: 'from', id: 'right', x: 100, y: 100, config: {table: 'sched'}},
-      {type: 'join', id: 'join', x: 50, y: 50, config: {joinType: 'LEFT', leftColumn: '', rightColumn: ''}, inputs: [null, 'right'] as (string | null)[]},
+      {
+        type: 'join',
+        id: 'join',
+        x: 50,
+        y: 50,
+        config: {joinType: 'LEFT', leftColumn: '', rightColumn: ''},
+        inputs: [null, 'right'] as (string | null)[],
+      },
     ];
     const index = flattenNodes(roots);
     const result = findConnectedInputs(index, 'join');
@@ -209,7 +250,14 @@ describe('findConnectedInputs', () => {
 
   it('skips undefined entries', () => {
     const roots = [
-      {type: 'filter', id: 'n1', x: 0, y: 0, config: {conditions: []}, inputs: [null, undefined] as (string | null | undefined)[]},
+      {
+        type: 'filter',
+        id: 'n1',
+        x: 0,
+        y: 0,
+        config: {conditions: []},
+        inputs: [null, undefined] as (string | null | undefined)[],
+      },
     ] as RootNodeData[];
     const result = findConnectedInputs(flattenNodes(roots), 'n1');
     expect(result.size).toBe(0);
@@ -252,7 +300,14 @@ describe('getPrimaryInput', () => {
   it('returns wired input port 0 when no docked parent', () => {
     const roots: RootNodeData[] = [
       {type: 'from', id: 'up', x: 0, y: 0, config: {table: 'slice'}},
-      {type: 'filter', id: 'down', x: 100, y: 100, config: {conditions: []}, inputs: ['up']},
+      {
+        type: 'filter',
+        id: 'down',
+        x: 100,
+        y: 100,
+        config: {conditions: []},
+        inputs: ['up'],
+      },
     ];
     const index = flattenNodes(roots);
     expect(getPrimaryInput(index, 'down')?.id).toBe('up');
@@ -301,8 +356,18 @@ describe('collectUpstream', () => {
 
   it('returns nodes in topological order for a long chain', () => {
     const limit: NodeData = {type: 'limit', id: 'l1', config: {limit: 10}};
-    const sort: NodeData = {type: 'sort', id: 's1', config: {sortColumn: '', sortOrder: 'ASC'}, next: limit};
-    const filter: NodeData = {type: 'filter', id: 'f1', config: {conditions: []}, next: sort};
+    const sort: NodeData = {
+      type: 'sort',
+      id: 's1',
+      config: {sortColumn: '', sortOrder: 'ASC'},
+      next: limit,
+    };
+    const filter: NodeData = {
+      type: 'filter',
+      id: 'f1',
+      config: {conditions: []},
+      next: sort,
+    };
     const root: RootNodeData = {
       type: 'from',
       id: 'r1',
@@ -338,7 +403,14 @@ describe('collectUpstream', () => {
       inputs: ['join'],
     };
     const roots: RootNodeData[] = [
-      {type: 'from', id: 'left', x: 0, y: 0, config: {table: 'slice'}, next: join},
+      {
+        type: 'from',
+        id: 'left',
+        x: 0,
+        y: 0,
+        config: {table: 'slice'},
+        next: join,
+      },
       {type: 'from', id: 'right', x: 100, y: 100, config: {table: 'sched'}},
       f1,
     ];
@@ -349,8 +421,8 @@ describe('collectUpstream', () => {
     expect(order).toHaveLength(4);
     expect(order[3].id).toBe('f1');
     expect(order[2].id).toBe('join');
-    expect(order.map(n => n.id)).toContain('left');
-    expect(order.map(n => n.id)).toContain('right');
+    expect(order.map((n) => n.id)).toContain('left');
+    expect(order.map((n) => n.id)).toContain('right');
   });
 
   it('does not visit the same node twice', () => {
@@ -440,7 +512,14 @@ describe('Node removal', () => {
       inputs: ['left', 'right'],
     };
     const roots: RootNodeData[] = [
-      {type: 'from', id: 'left', x: 0, y: 0, config: {table: 'slice'}, next: join},
+      {
+        type: 'from',
+        id: 'left',
+        x: 0,
+        y: 0,
+        config: {table: 'slice'},
+        next: join,
+      },
       {type: 'from', id: 'right', x: 100, y: 100, config: {table: 'sched'}},
     ];
     const index = flattenNodes(roots);
@@ -570,7 +649,11 @@ describe('Docking and undocking', () => {
 
 describe('Root node positioning', () => {
   it('only root nodes have x/y coordinates', () => {
-    const child: NodeData = {type: 'filter', id: 'c1', config: {conditions: []}};
+    const child: NodeData = {
+      type: 'filter',
+      id: 'c1',
+      config: {conditions: []},
+    };
     const root: RootNodeData = {
       type: 'from',
       id: 'r1',
@@ -602,7 +685,11 @@ describe('Root node positioning', () => {
       y: 200,
       config: {table: 'sched'},
     };
-    expect((flattenNodes([root1, root2]).nodes['r1'] as RootNodeData).x).toBe(10);
-    expect((flattenNodes([root1, root2]).nodes['r2'] as RootNodeData).x).toBe(100);
+    expect((flattenNodes([root1, root2]).nodes['r1'] as RootNodeData).x).toBe(
+      10,
+    );
+    expect((flattenNodes([root1, root2]).nodes['r2'] as RootNodeData).x).toBe(
+      100,
+    );
   });
 });
