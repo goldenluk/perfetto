@@ -106,6 +106,8 @@ export function buildIR(
   sqlModules: SqlModules | undefined,
 ): IrEntry[] | undefined {
   const targetNode = index.nodes[nodeId];
+  // Record lookups can miss at runtime despite the non-null type.
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!targetNode) return undefined;
 
   // Collect upstream index in topological order.

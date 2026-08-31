@@ -29,7 +29,7 @@ export function Card(): m.Component<CardAttrs> {
         m('.pf-spag-card-header', [
           m('span.pf-spag-card-title', title),
           meta && m('span.pf-spag-card-meta', meta),
-          badges && m('.pf-spag-card-badges', badges),
+          badges !== undefined && m('.pf-spag-card-badges', badges),
         ]),
         m('pre.pf-spag-card-body', content),
       ]);

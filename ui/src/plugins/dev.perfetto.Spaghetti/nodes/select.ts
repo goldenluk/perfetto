@@ -206,7 +206,7 @@ function getOutputColumns(
 
 function isValid(config: SelectConfig): boolean {
   const expressions = config.expressions ?? [];
-  return expressions.every((e) => !e.alias || e.expression);
+  return expressions.every((e) => !e.alias || !!e.expression);
 }
 
 function tryFold(stmt: SqlStatement, config: SelectConfig): boolean {

@@ -20,24 +20,61 @@ import {manifest as fromNode} from './nodes/from';
 import {
   manifest as filterNode,
   conditionsToSql,
-  FilterOp,
+  type FilterCondition,
+  type FilterConfig,
+  type FilterConjunction,
+  type FilterOp,
 } from './nodes/filter';
-import {manifest as selectNode} from './nodes/select';
-import {manifest as joinNode, getExtendColumnAliases} from './nodes/join';
-import {manifest as groupByNode} from './nodes/groupby';
+import {
+  manifest as selectNode,
+  type SelectConfig,
+  type SelectEntry,
+  type SelectExpression,
+} from './nodes/select';
+import {
+  manifest as joinNode,
+  getExtendColumnAliases,
+  type JoinColumn,
+  type JoinConfig,
+} from './nodes/join';
+import {
+  manifest as groupByNode,
+  type Aggregation,
+  type GroupByConfig,
+} from './nodes/groupby';
 import {
   manifest as sortNode,
   getSortConditions,
   sortConditionsToSql,
+  type SortCondition,
+  type SortConfig,
 } from './nodes/sort';
-import {manifest as unionNode} from './nodes/union';
-import {manifest as sqlNode} from './nodes/sql';
-import {manifest as extendNode} from './nodes/extend';
+import {manifest as unionNode, type UnionConfig} from './nodes/union';
+import {
+  manifest as sqlNode,
+  type SqlConfig,
+  type SqlOutputColumn,
+} from './nodes/sql';
+import {
+  manifest as extendNode,
+  type ExtendConfig,
+  type ExtendEntry,
+} from './nodes/extend';
 import {manifest as dropNode} from './nodes/drop';
-import {manifest as limitNode} from './nodes/limit';
-import {manifest as timeRangeNode} from './nodes/time_range';
-import {manifest as extractArgNode} from './nodes/extract_arg';
-import {manifest as intervalIntersectNode} from './nodes/interval_intersect';
+import {manifest as limitNode, type LimitConfig} from './nodes/limit';
+import {
+  manifest as timeRangeNode,
+  type TimeRangeConfig,
+} from './nodes/time_range';
+import {
+  manifest as extractArgNode,
+  type ExtractArgConfig,
+  type ExtractArgEntry,
+} from './nodes/extract_arg';
+import {
+  manifest as intervalIntersectNode,
+  type IntervalIntersectConfig,
+} from './nodes/interval_intersect';
 
 // --- Helper stubs ---
 
@@ -64,29 +101,39 @@ function makeColumnContext(
 
 // Helper to create filter configs without type issues
 function filterConfig(
-  conds: {column: string; op: string; value: string}[],
-  conjunction?: 'AND' | 'OR',
-): any {
+  conds: FilterCondition[],
+  conjunction?: FilterConjunction,
+): FilterConfig {
   return {conditions: conds, conjunction};
 }
 
 // Helper to create groupby configs
-function groupByConfig(groupCols: string[], aggs: any[]): any {
+function groupByConfig(
+  groupCols: string[],
+  aggs: Aggregation[],
+): GroupByConfig {
   return {groupColumns: groupCols, aggregations: aggs};
 }
 
 // Helper to create sort configs
-function sortConfig(sortCol: string, sortOrder: string, conds?: any[]): any {
+function sortConfig(
+  sortCol: string,
+  sortOrder: 'ASC' | 'DESC',
+  conds?: SortCondition[],
+): SortConfig {
   return {sortColumn: sortCol, sortOrder, conditions: conds ?? []};
 }
 
 // Helper to create select configs
-function selectConfig(entries?: any[], expressions?: any[]): any {
+function selectConfig(
+  entries?: SelectEntry[],
+  expressions?: SelectExpression[],
+): SelectConfig {
   return {entries: entries ?? [], expressions: expressions ?? []};
 }
 
 // Helper to create extend configs
-function extendConfig(entries: any[]): any {
+function extendConfig(entries: ExtendEntry[]): ExtendConfig {
   return {entries};
 }
 
@@ -95,8 +142,8 @@ function joinConfig(
   leftCol: string,
   rightCol: string,
   joinType: 'LEFT' | 'INNER' = 'LEFT',
-  cols?: any[],
-): any {
+  cols?: JoinColumn[],
+): JoinConfig {
   return {
     joinType,
     leftColumn: leftCol,
@@ -106,27 +153,34 @@ function joinConfig(
 }
 
 // Helper to create limit configs
-function limitConfig(count: string): any {
+function limitConfig(count: string): LimitConfig {
   return {limitCount: count};
 }
 
 // Helper to create sql configs
-function sqlConfig(sql: string, inputPorts?: string[], columns?: any[]): any {
+function sqlConfig(
+  sql: string,
+  inputPorts?: string[],
+  columns?: SqlOutputColumn[],
+): SqlConfig {
   return {sql, inputPorts: inputPorts ?? [], columns: columns ?? []};
 }
 
 // Helper to create union configs
-function unionConfig(distinct: boolean, numInputs: number): any {
+function unionConfig(distinct: boolean, numInputs: number): UnionConfig {
   return {distinct, numInputs};
 }
 
 // Helper to create timeRange configs
-function timeRangeConfig(ts: string, dur: string): any {
+function timeRangeConfig(ts: string, dur: string): TimeRangeConfig {
   return {ts, dur};
 }
 
 // Helper to create extractArg configs
-function extractArgConfig(argSetIdCol: string, extractions: any[]): any {
+function extractArgConfig(
+  argSetIdCol: string,
+  extractions: ExtractArgEntry[],
+): ExtractArgConfig {
   return {argSetIdCol, extractions};
 }
 
@@ -135,7 +189,7 @@ function intervalIntersectConfig(
   numInputs: number,
   partitionCols: string[],
   filterNeg: boolean,
-): any {
+): IntervalIntersectConfig {
   return {
     numInputs,
     partitionColumns: partitionCols,
@@ -326,120 +380,100 @@ describe('Filter manifest', () => {
 
 describe('conditionsToSql', () => {
   it('handles single condition', () => {
-    const conds: {column: string; op: string; value: string}[] = [
-      {column: 'dur', op: '>', value: '1000'},
-    ];
-    expect(conditionsToSql(conds as any)).toBe('dur > 1000');
+    const conds: FilterCondition[] = [{column: 'dur', op: '>', value: '1000'}];
+    expect(conditionsToSql(conds)).toBe('dur > 1000');
   });
 
   it('handles IS NULL without value', () => {
-    const conds: {column: string; op: string; value: string}[] = [
+    const conds: FilterCondition[] = [
       {column: 'name', op: 'IS NULL', value: ''},
     ];
-    expect(conditionsToSql(conds as any)).toBe('name IS NULL');
+    expect(conditionsToSql(conds)).toBe('name IS NULL');
   });
 
   it('handles IS NOT NULL without value', () => {
-    const conds: {column: string; op: string; value: string}[] = [
+    const conds: FilterCondition[] = [
       {column: 'name', op: 'IS NOT NULL', value: ''},
     ];
-    expect(conditionsToSql(conds as any)).toBe('name IS NOT NULL');
+    expect(conditionsToSql(conds)).toBe('name IS NOT NULL');
   });
 
   it('quotes string values', () => {
-    const conds: {column: string; op: string; value: string}[] = [
-      {column: 'name', op: '=', value: 'foo'},
-    ];
-    expect(conditionsToSql(conds as any)).toBe("name = 'foo'");
+    const conds: FilterCondition[] = [{column: 'name', op: '=', value: 'foo'}];
+    expect(conditionsToSql(conds)).toBe("name = 'foo'");
   });
 
   it('does NOT quote numeric literals', () => {
-    const conds: {column: string; op: string; value: string}[] = [
-      {column: 'dur', op: '>', value: '1000'},
-    ];
-    expect(conditionsToSql(conds as any)).toBe('dur > 1000');
+    const conds: FilterCondition[] = [{column: 'dur', op: '>', value: '1000'}];
+    expect(conditionsToSql(conds)).toBe('dur > 1000');
   });
 
   it('does NOT quote negative numbers', () => {
-    const conds: {column: string; op: string; value: string}[] = [
-      {column: 'val', op: '=', value: '-42'},
-    ];
-    expect(conditionsToSql(conds as any)).toBe('val = -42');
+    const conds: FilterCondition[] = [{column: 'val', op: '=', value: '-42'}];
+    expect(conditionsToSql(conds)).toBe('val = -42');
   });
 
   it('does NOT quote floats', () => {
-    const conds: {column: string; op: string; value: string}[] = [
-      {column: 'val', op: '=', value: '3.14'},
-    ];
-    expect(conditionsToSql(conds as any)).toBe('val = 3.14');
+    const conds: FilterCondition[] = [{column: 'val', op: '=', value: '3.14'}];
+    expect(conditionsToSql(conds)).toBe('val = 3.14');
   });
 
   it('does NOT quote scientific notation', () => {
-    const conds: {column: string; op: string; value: string}[] = [
-      {column: 'val', op: '=', value: '1e10'},
-    ];
-    expect(conditionsToSql(conds as any)).toBe('val = 1e10');
+    const conds: FilterCondition[] = [{column: 'val', op: '=', value: '1e10'}];
+    expect(conditionsToSql(conds)).toBe('val = 1e10');
   });
 
   it('does NOT quote NULL keyword', () => {
-    const conds: {column: string; op: string; value: string}[] = [
-      {column: 'val', op: '=', value: 'null'},
-    ];
-    expect(conditionsToSql(conds as any)).toBe('val = null');
+    const conds: FilterCondition[] = [{column: 'val', op: '=', value: 'null'}];
+    expect(conditionsToSql(conds)).toBe('val = null');
   });
 
   it('does NOT quote already-quoted strings', () => {
-    const conds: {column: string; op: string; value: string}[] = [
+    const conds: FilterCondition[] = [
       {column: 'name', op: '=', value: "'foo'"},
     ];
-    expect(conditionsToSql(conds as any)).toBe("name = 'foo'");
+    expect(conditionsToSql(conds)).toBe("name = 'foo'");
   });
 
   it('escapes single quotes in values', () => {
-    const conds: {column: string; op: string; value: string}[] = [
-      {column: 'name', op: '=', value: "it's"},
-    ];
-    expect(conditionsToSql(conds as any)).toBe("name = 'it''s'");
+    const conds: FilterCondition[] = [{column: 'name', op: '=', value: "it's"}];
+    expect(conditionsToSql(conds)).toBe("name = 'it''s'");
   });
 
   it('does NOT quote parenthesized expressions', () => {
-    const conds: {column: string; op: string; value: string}[] = [
+    const conds: FilterCondition[] = [
       {column: 'val', op: '=', value: '(1,2,3)'},
     ];
-    expect(conditionsToSql(conds as any)).toBe('val = (1,2,3)');
+    expect(conditionsToSql(conds)).toBe('val = (1,2,3)');
   });
 
   it('combines conditions with AND by default', () => {
-    const conds: {column: string; op: string; value: string}[] = [
+    const conds: FilterCondition[] = [
       {column: 'dur', op: '>', value: '1000'},
       {column: 'ts', op: '<', value: '500'},
     ];
-    expect(conditionsToSql(conds as any, 'AND')).toBe(
-      'dur > 1000 AND ts < 500',
-    );
+    expect(conditionsToSql(conds, 'AND')).toBe('dur > 1000 AND ts < 500');
   });
 
   it('combines conditions with OR', () => {
-    const conds: {column: string; op: string; value: string}[] = [
+    const conds: FilterCondition[] = [
       {column: 'dur', op: '>', value: '1000'},
       {column: 'ts', op: '<', value: '500'},
     ];
-    expect(conditionsToSql(conds as any, 'OR')).toBe('dur > 1000 OR ts < 500');
+    expect(conditionsToSql(conds, 'OR')).toBe('dur > 1000 OR ts < 500');
   });
 
   it('filters out conditions with empty column', () => {
-    const conds: {column: string; op: string; value: string}[] = [
+    const conds: FilterCondition[] = [
       {column: '', op: '=', value: 'x'},
       {column: 'dur', op: '>', value: '1000'},
     ];
-    expect(conditionsToSql(conds as any)).toBe('dur > 1000');
+    expect(conditionsToSql(conds)).toBe('dur > 1000');
   });
 
   it('returns empty string for all empty conditions', () => {
-    const conds: {column: string; op: string; value: string}[] = [
-      {column: '', op: '=', value: ''},
-    ];
-    expect(conditionsToSql(conds as any)).toBe('');
+    const conds: FilterCondition[] = [{column: '', op: '=', value: ''}];
+    expect(conditionsToSql(conds)).toBe('');
   });
 
   it('handles all comparison FILTER_OPS', () => {
@@ -455,26 +489,24 @@ describe('conditionsToSql', () => {
       'GLOB',
     ];
     for (const op of ops) {
-      const conds: {column: string; op: string; value: string}[] = [
-        {column: 'col', op, value: 'val'},
-      ];
-      const sql = conditionsToSql(conds as any);
+      const conds: FilterCondition[] = [{column: 'col', op, value: 'val'}];
+      const sql = conditionsToSql(conds);
       expect(sql).toContain(`col ${op} 'val'`);
     }
   });
 
   it('handles LIKE operator', () => {
-    const conds: {column: string; op: string; value: string}[] = [
+    const conds: FilterCondition[] = [
       {column: 'name', op: 'LIKE', value: '%foo%'},
     ];
-    expect(conditionsToSql(conds as any)).toBe("name LIKE '%foo%'");
+    expect(conditionsToSql(conds)).toBe("name LIKE '%foo%'");
   });
 
   it('handles GLOB operator', () => {
-    const conds: {column: string; op: string; value: string}[] = [
+    const conds: FilterCondition[] = [
       {column: 'name', op: 'GLOB', value: '*foo*'},
     ];
-    expect(conditionsToSql(conds as any)).toBe("name GLOB '*foo*'");
+    expect(conditionsToSql(conds)).toBe("name GLOB '*foo*'");
   });
 });
 

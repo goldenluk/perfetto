@@ -147,6 +147,8 @@ export function findConnectedInputs(
     const fromId = node.inputs[i];
     if (fromId !== null && fromId !== undefined) {
       const inputNode = index.nodes[fromId];
+      // Record lookups can miss at runtime despite the non-null type.
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (inputNode) result.set(i, inputNode);
     }
   }
@@ -161,6 +163,8 @@ export function getOutputColumnsForNode(
   sqlModules: SqlModules | undefined,
 ): ColumnDef[] | undefined {
   const node = index.nodes[nodeId];
+  // Record lookups can miss at runtime despite the non-null type.
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!node) return undefined;
 
   const manifest = NODE_REGISTRY[node.type];
@@ -221,6 +225,8 @@ export function collectUpstream(
   visited.add(nodeId);
 
   const node = index.nodes[nodeId];
+  // Record lookups can miss at runtime despite the non-null type.
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!node) return;
 
   // Visit all inputs: port 0 can be satisfied by a docked parent,

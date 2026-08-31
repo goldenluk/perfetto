@@ -286,6 +286,8 @@ export function SpaghettiPage(): m.Component<SpaghettiPage> {
     const selected: RootNodeData[] = [];
     for (const id of selectedNodeIds) {
       const node = activeNodes[id];
+      // Record lookups can miss at runtime despite the non-null type.
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (node) selected.push(node);
     }
     if (selected.length === 0) return;
@@ -614,6 +616,8 @@ export function SpaghettiPage(): m.Component<SpaghettiPage> {
 
       if (pinnedNodeId !== undefined) {
         const pinnedNode = flatNodes.nodes[pinnedNodeId];
+        // Record lookups can miss at runtime despite the non-null type.
+        // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         const pinnedLabel = pinnedNode
           ? (getManifest(pinnedNode.type)?.title ?? pinnedNode.type)
           : pinnedNodeId;
@@ -725,6 +729,8 @@ export function SpaghettiPage(): m.Component<SpaghettiPage> {
           updateStore((draft) => {
             const flat = flattenNodes(draft.nodes);
             const target = flat.nodes[conn.toNode];
+            // Record lookups can miss at runtime despite the non-null type.
+            // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
             if (!target) return;
             if (!target.inputs) target.inputs = [];
             while (target.inputs.length <= conn.toPort) {
@@ -736,6 +742,8 @@ export function SpaghettiPage(): m.Component<SpaghettiPage> {
         },
         onConnectionRemove: (index: number) => {
           const conn = activeConns[index];
+          // Record lookups can miss at runtime despite the non-null type.
+          // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
           if (!conn) return;
           updateStore((draft) => {
             const flat = flattenNodes(draft.nodes);
