@@ -16,6 +16,12 @@ import type {Trace} from '../../public/trace';
 import type {PerfettoPlugin} from '../../public/plugin';
 import {METRIC_HANDLERS} from './handlers/handlerRegistry';
 import type {MetricData, MetricHandlerMatch} from './handlers/metricUtils';
+import {executePinIntents} from './handlers/executor';
+import {
+  parsePinIntents,
+  type PinIntent,
+  type PinRequestsInput,
+} from './handlers/pinIntent';
 import AndroidCujsPlugin from '../com.android.AndroidCujs';
 import Wattson from '../org.kernel.Wattson';
 
@@ -76,19 +82,43 @@ export default class implements PerfettoPlugin {
         );
         if (metric === undefined) return;
         const metricList = metric.split(',');
-        this.callHandlers(metricList, ctx);
+        await this.callHandlers(metricList, ctx);
       },
     });
+
+    const pinCallback = async (arg?: unknown): Promise<PinIntent[]> => {
+      const intents = parsePinIntents(arg as PinRequestsInput);
+      await executePinIntents(ctx, intents);
+      return intents;
+    };
+
+    // Generic entry point for other clients (e.g. Perfetto startup commands)
+    // that provide PinIntents or filter dictionaries directly.
+    ctx.commands.registerCommand({
+      id: 'com.android.PinAndroidPerfMetrics#pinRequests',
+      name: 'Pin performance tracks from PinIntent[] or filter dictionaries',
+      callback: pinCallback,
+    });
+
+    ctx.commands.registerCommand({
+      id: 'com.android.PinAndroidPerfMetrics#pinRequestsFromFilter',
+      name: 'Pin performance tracks from external console filter dictionary',
+      callback: pinCallback,
+    });
+
     if (metrics.length !== 0) {
       const plugin = ctx.plugins.getPlugin(AndroidCujsPlugin);
       await plugin.pinJankCujs(ctx);
       await plugin.pinLatencyCujs(ctx);
-      this.callHandlers(metrics, ctx);
+      await this.callHandlers(metrics, ctx);
     }
   }
 
   private async callHandlers(metricsList: string[], ctx: Trace) {
-    // List of metrics that actually match some handler
+    const intents = parsePinIntents(metricsList);
+    await executePinIntents(ctx, intents);
+
+    // List of metrics that actually match some handler (e.g. memory metrics)
     const metricsToShow: MetricHandlerMatch[] =
       this.getMetricsToShow(metricsList);
 
