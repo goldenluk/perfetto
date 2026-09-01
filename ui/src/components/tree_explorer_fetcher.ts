@@ -226,8 +226,28 @@ export class TreeExplorerFetcher implements AsyncDisposable {
       }
       trash.use(dependency.clone());
     }
+    await this.evictStaleTables(metrics);
     const table = await this.getMetricTable(metric);
     return await computeTree(this.trace.engine, table, state);
+  }
+
+  // Drops cached tables whose metric object is no longer reachable from the
+  // current metrics array, so callers cycling through many metric sets (e.g.
+  // stepping through entries of a collection) stay bounded at |metrics|
+  // materialized tables. fetch() is the only path that creates or reads
+  // these tables, and its callers serialize fetches (TreeExplorerPanel
+  // schedules them on a query limiter), so eviction cannot drop a table that
+  // is still in use.
+  private async evictStaleTables(
+    metrics: ReadonlyArray<TreeExplorerQueryMetric>,
+  ): Promise<void> {
+    for (let i = this.metricTables.length - 1; i >= 0; i--) {
+      const entry = this.metricTables[i];
+      if (!metrics.includes(entry.metric)) {
+        this.metricTables.splice(i, 1);
+        await entry.table[Symbol.asyncDispose]();
+      }
+    }
   }
 
   private async getMetricTable(
